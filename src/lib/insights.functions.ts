@@ -30,7 +30,7 @@ export const generateInsightsFn = createServerFn({ method: "POST" })
   .inputValidator((input: { versionId: string; passage: string }) => input)
   .handler(async ({ data }): Promise<Result> => {
     if (!isValidVersionId(data.versionId) || !isValidPassageId(data.passage)) return { ok:false, error:"Invalid passage or translation." };
-    const key = process.env.LOVABLE_API_KEY;
+    const key = process.env["LOVABLE_API_KEY"];
     if (!key) return { ok:false, error:"AI study insights are not configured on this deployment." };
 
     try {
