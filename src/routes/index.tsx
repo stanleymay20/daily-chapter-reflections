@@ -110,7 +110,15 @@ function Home() {
         <div className="mt-5">
           <ApiStateNotice error={biblesQuery.error} onRetry={() => biblesQuery.refetch()} />
         </div>
+      ) : !biblesQuery.isLoading && bibles.length === 0 ? (
+        <div className="mt-5">
+          <ApiStateNotice
+            error={new Error(encodeApiError(normalizeApiError(403)))}
+            onRetry={() => biblesQuery.refetch()}
+          />
+        </div>
       ) : null}
+
 
       <section className="mt-6 space-y-3">
         {plan ? (
