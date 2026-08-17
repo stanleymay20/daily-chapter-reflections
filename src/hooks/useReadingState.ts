@@ -105,7 +105,8 @@ export function useSelectedVersion() {
   return { versionId, select, ready };
 }
 
-export const PREFERRED_VERSION_ID = "3034"; // Berean Standard Bible
+export const PREFERRED_VERSION_ID = "111"; // New International Version 2011
+export const FALLBACK_VERSION_ID = "3034"; // Berean Standard Bible
 
 export function pickDefaultVersion<T extends { id: string; language: string; abbreviation: string }>(
   bibles: T[],
@@ -117,6 +118,7 @@ export function pickDefaultVersion<T extends { id: string; language: string; abb
   }
   return (
     bibles.find((b) => b.id === PREFERRED_VERSION_ID) ??
+    bibles.find((b) => b.id === FALLBACK_VERSION_ID) ??
     bibles.find((b) => /^en/i.test(b.language) || /english/i.test(b.language)) ??
     bibles[0]
   );
