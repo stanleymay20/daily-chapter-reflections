@@ -6,7 +6,7 @@ import { Card } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { DEFAULT_SETTINGS, loadSettings, saveSettings, type AppSettings, type ThemeMode } from "@/lib/app-state";
 import { getCloudUser, sendSignInLink, signOutCloud, syncStudyData } from "@/lib/cloud-sync";
-import { requireSupabase } from "@/lib/supabase.client";
+import { requireSupabase } from "@/lib/supabase";
 
 export const Route = createFileRoute("/settings")({ component: SettingsPage });
 
