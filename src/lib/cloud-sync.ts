@@ -37,8 +37,9 @@ export async function getCloudUser() {
 
 export async function sendSignInLink(email: string) {
   const sb = requireSupabase();
-  const redirect = typeof window !== "undefined" ? window.location.origin + "/settings" : undefined;
-  const { error } = await sb.auth.signInWithOtp({ email, options: redirect ? { emailRedirectTo: redirect } : undefined });
+  const redirect = typeof window !== "undefined" ? window.location.origin + "/settings" : null;
+  const credentials = redirect ? { email, options: { emailRedirectTo: redirect } } : { email };
+  const { error } = await sb.auth.signInWithOtp(credentials);
   if (error) throw error;
 }
 
