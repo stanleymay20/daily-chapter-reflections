@@ -52,6 +52,7 @@ async function request<T>(path: string): Promise<T> {
     throw new Error(encodeApiError(normalizeApiError(res.status, detail)));
   }
 
+  if (res.status === 204) return null as T;
   return (await res.json()) as T;
 }
 
@@ -95,7 +96,10 @@ function collection(payload: unknown): RawBible[] {
 }
 
 export async function listBibles(): Promise<BibleVersion[]> {
-  const payload = await request<unknown>("/bibles");
+  // The Platform API requires a language filter; page_size max is 99.
+  const payload = await request<unknown>(
+    "/bibles?language_ranges%5B%5D=eng&page_size=99",
+  );
   return collection(payload)
     .map(toVersion)
     .filter((b) => b.id);
