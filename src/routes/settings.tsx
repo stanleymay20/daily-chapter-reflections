@@ -9,7 +9,7 @@ export const Route = createFileRoute("/settings")({ component: SettingsPage });
 function SettingsPage(){
   const [settings,setSettings]=useState<AppSettings>(DEFAULT_SETTINGS);
   useEffect(()=>setSettings(loadSettings()),[]);
-  const commit=(patch:Partial<AppSettings>)=>{const next={...settings,...patch};setSettings(next);saveSettings(next);if(typeof document!=="undefined")document.documentElement.dataset.theme=next.theme;};
+  const commit=(patch:Partial<AppSettings>)=>{const next={...settings,...patch};setSettings(next);saveSettings(next);if(typeof document!=="undefined")document.documentElement.dataset["theme"]=next.theme;};
   return <main className="mx-auto min-h-screen w-full max-w-md px-5 pb-28 pt-8">
     <h1 className="font-[family-name:var(--font-scripture)] text-3xl font-semibold">Settings</h1>
     <div className="mt-5 space-y-4">
