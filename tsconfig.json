@@ -24,6 +24,7 @@
     "exactOptionalPropertyTypes": true,
     "noUncheckedSideEffectImports": true,
     "paths": {
+      "@/lib/supabase.client": ["./src/lib/supabase.ts"],
       "@/*": ["./src/*"]
     }
   }
