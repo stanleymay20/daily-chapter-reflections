@@ -15,6 +15,7 @@ import { pickDefaultVersion, useNotes, useProgress, useSelectedVersion } from "@
 import { loadSavedVerses, loadSettings, readingWidthClass, safeShareText, upsertSavedVerse, type HighlightColor, type SavedVerse } from "@/lib/app-state";
 import { askChapterFn, generateInsightsFn, type AskChapterAnswer, type StudyInsights } from "@/lib/insights.functions";
 import { berlinToday, chapterLabel, findChapterByPassageId, getPlanForDate, passageId } from "@/lib/schedule";
+import { chooseDefaultVoice, getEnglishVoices, loadSpeechVoice, normalizeSpeechText, saveSpeechVoice } from "@/lib/speech";
 import { loadChapterStudy, saveChapterStudy, type ChapterStudy } from "@/lib/study-state";
 import { encodeApiError, isValidPassageId } from "@/lib/youversion";
 import { getPassageFn, listBiblesFn } from "@/lib/youversion.functions";
@@ -59,12 +60,31 @@ function Reader(){
   const [asking,setAsking]=useState(false);
   const [speaking,setSpeaking]=useState(false);
   const [verseCursor,setVerseCursor]=useState(0);
+  const [voices,setVoices]=useState<SpeechSynthesisVoice[]>([]);
+  const [voiceUri,setVoiceUri]=useState("");
+  const [speechError,setSpeechError]=useState("");
   const cancelSpeech=useRef(false);
   const settings=useMemo(()=>loadSettings(),[]);
   const visibleStages=useMemo(()=>settings.studyMode==="read"?stages.filter(s=>s.id==="read"||s.id==="pray"):settings.studyMode==="quick"?stages.filter(s=>s.id==="read"||s.id==="reflect"||s.id==="pray"):stages,[settings.studyMode]);
 
   useEffect(()=>{setSaved(loadSavedVerses());setStudy(loadChapterStudy(passage));setStatus(passage,statusOf(passage)==="complete"?"complete":"reading");setStage("read")},[passage,studyDate]);
   useEffect(()=>()=>{cancelSpeech.current=true;if(typeof window!=="undefined")window.speechSynthesis?.cancel()},[]);
+  useEffect(()=>{
+    if(typeof window==="undefined"||!window.speechSynthesis)return;
+    const refreshVoices=()=>{
+      const available=getEnglishVoices(window.speechSynthesis.getVoices());
+      setVoices(available);
+      setVoiceUri(current=>{
+        if(current&&available.some(v=>v.voiceURI===current))return current;
+        const savedVoice=loadSpeechVoice();
+        if(savedVoice&&available.some(v=>v.voiceURI===savedVoice))return savedVoice;
+        return chooseDefaultVoice(available)?.voiceURI??"";
+      });
+    };
+    refreshVoices();
+    window.speechSynthesis.addEventListener?.("voiceschanged",refreshVoices);
+    return()=>window.speechSynthesis.removeEventListener?.("voiceschanged",refreshVoices);
+  },[]);
 
   const listBibles=useServerFn(listBiblesFn);const getPassage=useServerFn(getPassageFn);const generateInsights=useServerFn(generateInsightsFn);const askChapter=useServerFn(askChapterFn);
   const biblesQuery=useQuery({queryKey:["bibles"],queryFn:async()=>{const res=await listBibles();if(!res.ok)throw new Error(encodeApiError(res.error));return res;},retry:false,staleTime:3600000});
@@ -82,12 +102,57 @@ function Reader(){
   const verseKey=(n:string)=>`${active?.id||"x"}:${passage}:${n}`;
   const savedFor=(n:string)=>saved.find(x=>x.id===verseKey(n));
   const afterRead:Stage=settings.studyMode==="read"?"pray":settings.studyMode==="quick"?"reflect":"understand";
+  const selectedVoice=voices.find(v=>v.voiceURI===voiceUri)??chooseDefaultVoice(voices);
 
   const updateStudy=(patch:Partial<Omit<ChapterStudy,"passage">>)=>{const next=saveChapterStudy(passage,patch);setStudy(next);};
   const persistVerse=(n:string,text:string,patch:Partial<SavedVerse>)=>{const current=savedFor(n);upsertSavedVerse({id:verseKey(n),passage,verse:n,reference:`${label}:${n}`,text,updatedAt:new Date().toISOString(),...current,...patch});setSaved(loadSavedVerses());};
   const share=async(reference:string,text:string)=>{const payload=safeShareText(reference,text);try{if(navigator.share)await navigator.share({title:reference,text:payload,url:location.href});else await navigator.clipboard.writeText(`${payload}\n${location.href}`);}catch{/* user cancelled */}};
   const stopSpeech=()=>{cancelSpeech.current=true;window.speechSynthesis?.cancel();setSpeaking(false)};
-  const speakFrom=(index:number)=>{if(!verses.length||!window.speechSynthesis)return;cancelSpeech.current=false;const safe=Math.max(0,Math.min(index,verses.length-1));setVerseCursor(safe);const verse=verses[safe]!;const u=new SpeechSynthesisUtterance(verse.text);u.rate=settings.audioRate;u.onstart=()=>{setSpeaking(true);if(settings.autoScroll)document.getElementById(`verse-${verse.number}`)?.scrollIntoView({behavior:"smooth",block:"center"})};u.onend=()=>{if(cancelSpeech.current){setSpeaking(false);return;}if(safe<verses.length-1)speakFrom(safe+1);else setSpeaking(false)};window.speechSynthesis.cancel();window.speechSynthesis.speak(u);};
+  const speakFrom=(index:number)=>{
+    if(!verses.length||typeof window==="undefined"||!window.speechSynthesis)return;
+    const safe=Math.max(0,Math.min(index,verses.length-1));
+    const verse=verses[safe]!;
+    const text=normalizeSpeechText(verse.text);
+    if(!text){if(safe<verses.length-1)speakFrom(safe+1);return;}
+    setVerseCursor(safe);
+    const utterance=new SpeechSynthesisUtterance(text);
+    if(selectedVoice){utterance.voice=selectedVoice;utterance.lang=selectedVoice.lang;}
+    else utterance.lang="en-GB";
+    utterance.rate=Math.max(0.75,Math.min(1.2,settings.audioRate*0.92));
+    utterance.pitch=0.98;
+    utterance.volume=1;
+    utterance.onstart=()=>{
+      setSpeaking(true);setSpeechError("");
+      if(settings.autoScroll)document.getElementById(`verse-${verse.number}`)?.scrollIntoView({behavior:"smooth",block:"center"});
+    };
+    utterance.onerror=(event)=>{
+      if(event.error!=="canceled"&&event.error!=="interrupted")setSpeechError("This device could not use that voice. Try another English voice below.");
+      setSpeaking(false);
+    };
+    utterance.onend=()=>{
+      if(cancelSpeech.current){setSpeaking(false);return;}
+      if(safe<verses.length-1)window.setTimeout(()=>speakFrom(safe+1),120);
+      else setSpeaking(false);
+    };
+    window.speechSynthesis.speak(utterance);
+  };
+  const startSpeech=(index:number)=>{
+    if(typeof window==="undefined"||!window.speechSynthesis)return;
+    cancelSpeech.current=true;
+    window.speechSynthesis.cancel();
+    cancelSpeech.current=false;
+    setSpeechError("");
+    window.setTimeout(()=>speakFrom(index),60);
+  };
+  const changeVoice=(next:string)=>{stopSpeech();setVoiceUri(next);saveSpeechVoice(next);};
+  const previewVoice=()=>{
+    if(typeof window==="undefined"||!window.speechSynthesis)return;
+    stopSpeech();cancelSpeech.current=false;
+    const utterance=new SpeechSynthesisUtterance("The Lord is my shepherd; I shall not want.");
+    if(selectedVoice){utterance.voice=selectedVoice;utterance.lang=selectedVoice.lang;}
+    utterance.rate=Math.max(0.75,Math.min(1.1,settings.audioRate*0.9));utterance.pitch=0.98;
+    window.speechSynthesis.speak(utterance);
+  };
   const doInsights=async()=>{if(!active)return;setGenerating(true);setInsightsError("");const res=await generateInsights({data:{versionId:active.id,passage}});setGenerating(false);if(res.ok)setInsights(res.insights);else setInsightsError(res.error);};
   const doAsk=async()=>{if(!active||!question.trim())return;setAsking(true);setAnswer(null);const res=await askChapter({data:{versionId:active.id,passage,question:question.trim()}});setAsking(false);if(res.ok)setAnswer(res.answer);else setInsightsError(res.error);};
   const complete=()=>{setStatus(passage,"complete");updateStudy({completedAt:new Date().toISOString()});};
@@ -103,12 +168,15 @@ function Reader(){
     <nav className={`mt-4 grid rounded-xl bg-muted p-1 ${visibleStages.length===2?"grid-cols-2":visibleStages.length===3?"grid-cols-3":"grid-cols-5"}`} aria-label="Study stages">{visibleStages.map(({id,label:stageLabel,icon:Icon})=><button key={id} onClick={()=>setStage(id)} className={`flex flex-col items-center gap-1 rounded-lg px-1 py-2 text-[9px] font-medium sm:flex-row sm:justify-center sm:text-xs ${stage===id?"bg-background text-foreground shadow-sm":"text-muted-foreground"}`}><Icon className="size-4"/>{stageLabel}</button>)}</nav>
 
     {stage==="read"?<section className="mt-6">
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-2"><div><h1 className="font-[family-name:var(--font-scripture)] text-4xl font-semibold">{label}</h1>{passageQuery.data?<p className="mt-1 text-xs text-muted-foreground">{passageQuery.data.reference}</p>:null}</div><Button variant="outline" size="sm" onClick={speaking?stopSpeech:()=>speakFrom(verseCursor)} disabled={!verses.length}>{speaking?<Pause className="mr-1 size-4"/>:<Headphones className="mr-1 size-4"/>}{speaking?"Pause":"Listen"}</Button></div>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2"><div><h1 className="font-[family-name:var(--font-scripture)] text-4xl font-semibold">{label}</h1>{passageQuery.data?<p className="mt-1 text-xs text-muted-foreground">{passageQuery.data.reference}</p>:null}</div><Button variant="outline" size="sm" onClick={speaking?stopSpeech:()=>startSpeech(verseCursor)} disabled={!verses.length}>{speaking?<Pause className="mr-1 size-4"/>:<Headphones className="mr-1 size-4"/>}{speaking?"Pause":"Listen"}</Button></div>
       {!isValidPassageId(passage)?<ApiStateNotice error={new Error("YVP_ERROR:{\"kind\":\"invalid_request\",\"status\":400,\"message\":\"That passage reference is not valid.\",\"retryable\":false}")}/>:biblesQuery.isError?<ApiStateNotice error={biblesQuery.error} onRetry={()=>biblesQuery.refetch()}/>:biblesQuery.isLoading||passageQuery.isLoading||!ready?<div className="space-y-3">{Array.from({length:10}).map((_,i)=><Skeleton key={i} className="h-6 w-full"/>)}</div>:!active?<ApiStateNotice error={new Error("YVP_ERROR:{\"kind\":\"not_found\",\"status\":403,\"message\":\"No Bible translations are available for this app.\",\"retryable\":true}")} onRetry={()=>biblesQuery.refetch()}/>:passageQuery.isError?<ApiStateNotice error={passageQuery.error} onRetry={()=>passageQuery.refetch()}/>:passageQuery.data?<article className="scripture text-foreground" style={{fontSize:settings.fontSize,lineHeight:settings.lineHeight}}>{verses.map((v,i)=>{const stored=savedFor(v.number);return <p key={`${v.number}-${i}`} id={`verse-${v.number}`} onClick={()=>setSelectedVerse(v.number)} className={`mb-3 cursor-pointer rounded-md px-1.5 py-0.5 transition ${stored?.highlight?bg[stored.highlight]:""} ${selectedVerse===v.number?"ring-1 ring-primary/40":verseCursor===i&&speaking?"bg-primary/8":"hover:bg-muted/50"}`}>{settings.showVerseNumbers?<sup className="mr-1 font-sans text-[0.62em] text-muted-foreground">{v.number}</sup>:null}{v.text}</p>})}{copyright?<p className="mt-10 border-t pt-4 font-sans text-[11px] leading-relaxed text-muted-foreground">{copyright}</p>:null}</article>:null}
 
       {selectedVerse&&passageQuery.data?(()=>{const v=verses.find(x=>x.number===selectedVerse);if(!v)return null;const stored=savedFor(v.number);return <Card className="sticky bottom-4 z-20 mt-4 p-3 shadow-xl"><div className="flex items-center justify-between"><strong className="text-xs">{label}:{v.number}</strong><button className="text-xs text-muted-foreground" onClick={()=>setSelectedVerse(null)}>Close</button></div><div className="mt-2 flex flex-wrap gap-2">{highlightColors.map(c=><button key={c} aria-label={`Highlight ${c}`} onClick={()=>persistVerse(v.number,v.text,{highlight:c})} className={`size-7 rounded-full border ${bg[c]}`}/>) }<Button variant="outline" size="sm" onClick={()=>persistVerse(v.number,v.text,{bookmarked:!stored?.bookmarked})}><Bookmark className="mr-1 size-3.5"/>{stored?.bookmarked?"Saved":"Bookmark"}</Button><Button variant="outline" size="sm" onClick={()=>{const verseNote=window.prompt("Verse note",stored?.note||"");if(verseNote!==null)persistVerse(v.number,v.text,{note:verseNote})}}><NotebookPen className="mr-1 size-3.5"/>Note</Button><Button variant="outline" size="sm" onClick={()=>share(`${label}:${v.number}`,v.text)}><Share2 className="mr-1 size-3.5"/>Share</Button></div></Card>})():null}
 
-      <Card className="mt-6 p-4"><div className="flex items-center justify-between gap-3"><div className="flex items-center gap-2"><Volume2 className="size-4 text-primary"/><div><p className="text-sm font-medium">Read aloud</p><p className="text-xs text-muted-foreground">{settings.audioRate}× · verse {Math.min(verseCursor+1,Math.max(verses.length,1))} of {verses.length}</p></div></div><div className="flex gap-1"><Button size="icon" variant="outline" onClick={()=>speakFrom(Math.max(0,verseCursor-1))} disabled={!verses.length} aria-label="Previous verse"><ChevronLeft className="size-4"/></Button><Button size="icon" onClick={speaking?stopSpeech:()=>speakFrom(verseCursor)} disabled={!verses.length} aria-label={speaking?"Pause":"Play"}>{speaking?<Pause className="size-4"/>:<Play className="size-4"/>}</Button><Button size="icon" variant="outline" onClick={()=>speakFrom(Math.min(verses.length-1,verseCursor+1))} disabled={!verses.length} aria-label="Next verse"><ChevronRight className="size-4"/></Button></div></div></Card>
+      <Card className="mt-6 p-4">
+        <div className="flex items-center justify-between gap-3"><div className="flex items-center gap-2"><Volume2 className="size-4 text-primary"/><div><p className="text-sm font-medium">Read aloud</p><p className="text-xs text-muted-foreground">{settings.audioRate}× · verse {Math.min(verseCursor+1,Math.max(verses.length,1))} of {verses.length}</p></div></div><div className="flex gap-1"><Button size="icon" variant="outline" onClick={()=>startSpeech(Math.max(0,verseCursor-1))} disabled={!verses.length} aria-label="Previous verse"><ChevronLeft className="size-4"/></Button><Button size="icon" onClick={speaking?stopSpeech:()=>startSpeech(verseCursor)} disabled={!verses.length} aria-label={speaking?"Pause":"Play"}>{speaking?<Pause className="size-4"/>:<Play className="size-4"/>}</Button><Button size="icon" variant="outline" onClick={()=>startSpeech(Math.min(verses.length-1,verseCursor+1))} disabled={!verses.length} aria-label="Next verse"><ChevronRight className="size-4"/></Button></div></div>
+        <div className="mt-4 rounded-xl bg-muted/60 p-3"><div className="flex flex-col gap-2 sm:flex-row sm:items-end"><label className="min-w-0 flex-1"><span className="text-[11px] font-medium text-muted-foreground">Voice</span><select value={voiceUri} onChange={e=>changeVoice(e.target.value)} className="mt-1 h-10 w-full rounded-lg border bg-background px-3 text-sm" disabled={!voices.length}>{voices.length?voices.map(v=><option key={v.voiceURI} value={v.voiceURI}>{v.name} · {v.lang}{/(premium|enhanced|natural|neural)/i.test(v.name)?" · high quality":""}</option>):<option>No English voices found</option>}</select></label><Button variant="outline" size="sm" onClick={previewVoice} disabled={!voices.length}>Preview voice</Button></div><p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">For the best sound, choose an Enhanced, Premium, Natural or Neural English voice if your device offers one. The app now avoids low-quality novelty voices and reads continuously without restarting the speech engine between verses.</p>{speechError?<p className="mt-2 text-xs text-destructive">{speechError}</p>:null}</div>
+      </Card>
       <Card className="mt-4 p-4"><div className="flex items-center gap-2"><NotebookPen className="size-4 text-primary"/><h2 className="text-sm font-semibold">Chapter notes</h2></div><Textarea value={note} onChange={e=>save(e.target.value)} placeholder={`What do you notice in ${label}?`} className="mt-3 min-h-28"/></Card>
       <div className="mt-5 flex justify-end"><Button onClick={()=>setStage(afterRead)}>{afterRead==="pray"?"Finish with prayer":afterRead==="reflect"?"Reflect":"Understand this chapter"}<ChevronRight className="ml-1 size-4"/></Button></div>
     </section>:null}
