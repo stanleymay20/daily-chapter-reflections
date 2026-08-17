@@ -22,7 +22,7 @@ import {
 } from "@/hooks/useReadingState";
 import { berlinToday, findChapterByPassageId } from "@/lib/schedule";
 import { getPassageFn, listBiblesFn } from "@/lib/youversion.functions";
-import { isValidPassageId } from "@/lib/youversion";
+import { encodeApiError, isValidPassageId } from "@/lib/youversion";
 
 export const Route = createFileRoute("/read/$passage")({
   head: ({ params }) => {
@@ -64,7 +64,11 @@ function Reader() {
 
   const biblesQuery = useQuery({
     queryKey: ["bibles"],
-    queryFn: () => listBibles(),
+    queryFn: async () => {
+      const res = await listBibles();
+      if (!res.ok) throw new Error(encodeApiError(res.error));
+      return res;
+    },
     retry: false,
     staleTime: 60 * 60 * 1000,
   });
@@ -76,7 +80,11 @@ function Reader() {
 
   const passageQuery = useQuery({
     queryKey: ["passage", active?.id, passage],
-    queryFn: () => getPassage({ data: { versionId: active!.id, passage } }),
+    queryFn: async () => {
+      const res = await getPassage({ data: { versionId: active!.id, passage } });
+      if (!res.ok) throw new Error(encodeApiError(res.error));
+      return res.passage;
+    },
     enabled: Boolean(active?.id) && isValidPassageId(passage),
     retry: false,
   });

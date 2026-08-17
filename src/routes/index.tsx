@@ -19,6 +19,7 @@ import {
   passageId,
 } from "@/lib/schedule";
 import { listBiblesFn } from "@/lib/youversion.functions";
+import { encodeApiError } from "@/lib/youversion";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -54,7 +55,11 @@ function Home() {
   const listBibles = useServerFn(listBiblesFn);
   const biblesQuery = useQuery({
     queryKey: ["bibles"],
-    queryFn: () => listBibles(),
+    queryFn: async () => {
+      const res = await listBibles();
+      if (!res.ok) throw new Error(encodeApiError(res.error));
+      return res;
+    },
     retry: false,
     staleTime: 60 * 60 * 1000,
   });
