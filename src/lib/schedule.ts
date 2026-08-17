@@ -28,7 +28,7 @@ export const TRACKS: Track[] = [
 export const USFM_BY_BOOK: Record<string,string> = Object.fromEntries(
   TRACKS.flatMap((t) => t.books.map((x) => [x.book, x.usfm])),
 );
-USFM_BY_BOOK.Psalm = "PSA";
+USFM_BY_BOOK["Psalm"] = "PSA";
 USFM_BY_BOOK["Song of Solomon"] = "SNG";
 
 export function toUsfm(book: string): string {
