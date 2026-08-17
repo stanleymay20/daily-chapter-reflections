@@ -8,6 +8,7 @@ import { Route as ReadPassageRouteImport } from './routes/read.$passage'
 import { Route as CalendarRouteImport } from './routes/calendar'
 import { Route as PlansRouteImport } from './routes/plans'
 import { Route as SavedRouteImport } from './routes/saved'
+import { Route as CommunityRouteImport } from './routes/community'
 import { Route as SettingsRouteImport } from './routes/settings'
 
 const IndexRoute = IndexRouteImport.update({ id:'/', path:'/', getParentRoute:()=>rootRouteImport } as any)
@@ -15,13 +16,14 @@ const ReadPassageRoute = ReadPassageRouteImport.update({ id:'/read/$passage', pa
 const CalendarRoute = CalendarRouteImport.update({ id:'/calendar', path:'/calendar', getParentRoute:()=>rootRouteImport } as any)
 const PlansRoute = PlansRouteImport.update({ id:'/plans', path:'/plans', getParentRoute:()=>rootRouteImport } as any)
 const SavedRoute = SavedRouteImport.update({ id:'/saved', path:'/saved', getParentRoute:()=>rootRouteImport } as any)
+const CommunityRoute = CommunityRouteImport.update({ id:'/community', path:'/community', getParentRoute:()=>rootRouteImport } as any)
 const SettingsRoute = SettingsRouteImport.update({ id:'/settings', path:'/settings', getParentRoute:()=>rootRouteImport } as any)
 
-export interface FileRoutesByFullPath { '/':typeof IndexRoute; '/read/$passage':typeof ReadPassageRoute; '/calendar':typeof CalendarRoute; '/plans':typeof PlansRoute; '/saved':typeof SavedRoute; '/settings':typeof SettingsRoute }
+export interface FileRoutesByFullPath { '/':typeof IndexRoute; '/read/$passage':typeof ReadPassageRoute; '/calendar':typeof CalendarRoute; '/plans':typeof PlansRoute; '/saved':typeof SavedRoute; '/community':typeof CommunityRoute; '/settings':typeof SettingsRoute }
 export interface FileRoutesByTo extends FileRoutesByFullPath {}
-export interface FileRoutesById { __root__:typeof rootRouteImport; '/':typeof IndexRoute; '/read/$passage':typeof ReadPassageRoute; '/calendar':typeof CalendarRoute; '/plans':typeof PlansRoute; '/saved':typeof SavedRoute; '/settings':typeof SettingsRoute }
-export interface FileRouteTypes { fileRoutesByFullPath:FileRoutesByFullPath; fullPaths:'/'|'/read/$passage'|'/calendar'|'/plans'|'/saved'|'/settings'; fileRoutesByTo:FileRoutesByTo; to:'/'|'/read/$passage'|'/calendar'|'/plans'|'/saved'|'/settings'; id:'__root__'|'/'|'/read/$passage'|'/calendar'|'/plans'|'/saved'|'/settings'; fileRoutesById:FileRoutesById }
-export interface RootRouteChildren { IndexRoute:typeof IndexRoute; ReadPassageRoute:typeof ReadPassageRoute; CalendarRoute:typeof CalendarRoute; PlansRoute:typeof PlansRoute; SavedRoute:typeof SavedRoute; SettingsRoute:typeof SettingsRoute }
+export interface FileRoutesById { __root__:typeof rootRouteImport; '/':typeof IndexRoute; '/read/$passage':typeof ReadPassageRoute; '/calendar':typeof CalendarRoute; '/plans':typeof PlansRoute; '/saved':typeof SavedRoute; '/community':typeof CommunityRoute; '/settings':typeof SettingsRoute }
+export interface FileRouteTypes { fileRoutesByFullPath:FileRoutesByFullPath; fullPaths:'/'|'/read/$passage'|'/calendar'|'/plans'|'/saved'|'/community'|'/settings'; fileRoutesByTo:FileRoutesByTo; to:'/'|'/read/$passage'|'/calendar'|'/plans'|'/saved'|'/community'|'/settings'; id:'__root__'|'/'|'/read/$passage'|'/calendar'|'/plans'|'/saved'|'/community'|'/settings'; fileRoutesById:FileRoutesById }
+export interface RootRouteChildren { IndexRoute:typeof IndexRoute; ReadPassageRoute:typeof ReadPassageRoute; CalendarRoute:typeof CalendarRoute; PlansRoute:typeof PlansRoute; SavedRoute:typeof SavedRoute; CommunityRoute:typeof CommunityRoute; SettingsRoute:typeof SettingsRoute }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
@@ -30,11 +32,12 @@ declare module '@tanstack/react-router' {
     '/calendar': { id:'/calendar'; path:'/calendar'; fullPath:'/calendar'; preLoaderRoute:typeof CalendarRouteImport; parentRoute:typeof rootRouteImport }
     '/plans': { id:'/plans'; path:'/plans'; fullPath:'/plans'; preLoaderRoute:typeof PlansRouteImport; parentRoute:typeof rootRouteImport }
     '/saved': { id:'/saved'; path:'/saved'; fullPath:'/saved'; preLoaderRoute:typeof SavedRouteImport; parentRoute:typeof rootRouteImport }
+    '/community': { id:'/community'; path:'/community'; fullPath:'/community'; preLoaderRoute:typeof CommunityRouteImport; parentRoute:typeof rootRouteImport }
     '/settings': { id:'/settings'; path:'/settings'; fullPath:'/settings'; preLoaderRoute:typeof SettingsRouteImport; parentRoute:typeof rootRouteImport }
   }
 }
 
-const rootRouteChildren:RootRouteChildren={IndexRoute,ReadPassageRoute,CalendarRoute,PlansRoute,SavedRoute,SettingsRoute}
+const rootRouteChildren:RootRouteChildren={IndexRoute,ReadPassageRoute,CalendarRoute,PlansRoute,SavedRoute,CommunityRoute,SettingsRoute}
 export const routeTree=rootRouteImport._addFileChildren(rootRouteChildren)._addFileTypes<FileRouteTypes>()
 
 import type { getRouter } from './router.tsx'
