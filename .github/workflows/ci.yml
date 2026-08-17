@@ -1,0 +1,31 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main, "chatgpt/**"]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - run: bun install --frozen-lockfile
+      - run: bun run test
+      - name: Typecheck
+        shell: bash
+        run: |
+          set +e
+          output="$(bun run typecheck 2>&1)"
+          code=$?
+          printf '%s\n' "$output"
+          if [ "$code" -ne 0 ]; then
+            while IFS= read -r line; do
+              printf '::error::%s\n' "$line"
+            done <<< "$output"
+            exit "$code"
+          fi
+      - run: bun run build
