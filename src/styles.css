@@ -142,5 +142,14 @@
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
+    -webkit-font-smoothing: antialiased;
   }
 }
+
+@utility scripture {
+  font-family: var(--font-scripture);
+  font-size: 1.125rem;
+  line-height: 1.85;
+  letter-spacing: 0.005em;
+}
+
