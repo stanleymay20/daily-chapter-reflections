@@ -41,7 +41,16 @@ export type NormalizedApiError = {
 export const MISSING_KEY_MESSAGE = "Connect YouVersion App Key in project secrets";
 
 export function normalizeApiError(status: number | null, detail?: string): NormalizedApiError {
-  if (status === 401 || status === 403) {
+  if (status === 403) {
+    return {
+      kind: "unauthorized",
+      status,
+      message:
+        "This YouVersion App Key has no Bible translations granted yet. Request Bible access for your app in the YouVersion Platform developer portal, then retry.",
+      retryable: false,
+    };
+  }
+  if (status === 401) {
     return {
       kind: "unauthorized",
       status,

@@ -139,7 +139,7 @@ function Reader() {
         ) : !active ? (
           <ApiStateNotice
             error={new Error(
-              "YVP_ERROR:{\"kind\":\"not_found\",\"status\":404,\"message\":\"No translation is available for this app key.\",\"retryable\":false}",
+              "YVP_ERROR:{\"kind\":\"not_found\",\"status\":403,\"message\":\"No Bible translations are granted to this YouVersion App Key yet. Request Bible access for your app in the YouVersion Platform developer portal, then retry.\",\"retryable\":true}",
             )}
             onRetry={() => biblesQuery.refetch()}
           />
