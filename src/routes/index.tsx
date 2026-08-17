@@ -19,7 +19,7 @@ import {
   passageId,
 } from "@/lib/schedule";
 import { listBiblesFn } from "@/lib/youversion.functions";
-import { encodeApiError } from "@/lib/youversion";
+import { encodeApiError, normalizeApiError } from "@/lib/youversion";
 
 export const Route = createFileRoute("/")({
   head: () => ({
