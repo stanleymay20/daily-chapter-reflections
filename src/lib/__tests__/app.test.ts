@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { berlinToday, findChapterByPassageId, getPlanForDate, passageId, toUsfm } from "../schedule";
+import { buildStudyCalendarIcs } from "../schedule-export";
 import { decodeApiError, encodeApiError, isValidPassageId, isValidVersionId, normalizeApiError } from "../youversion";
 import { splitVerses } from "../youversion.server";
 import { readingWidthClass, safeShareText } from "../app-state";
@@ -15,6 +16,7 @@ describe("looping schedule",()=>{
   it("returns undefined before the anchor",()=>expect(getPlanForDate("1999-01-01")).toBeUndefined());
   it("finds any valid chapter by passage id",()=>{expect(findChapterByPassageId("GEN.42")?.ref.book).toBe("Genesis");expect(findChapterByPassageId("GEN.99")).toBeUndefined()});
   it("computes the Berlin date",()=>expect(berlinToday(new Date("2026-08-16T23:30:00Z"))).toBe("2026-08-17"));
+  it("exports dated calendar events without Scripture text",()=>{const ics=buildStudyCalendarIcs({startDate:"2026-08-17",days:2,time:"05:00",timezone:"Europe/Berlin",chaptersPerDay:7,activeTracks:["Law","History","Psalms","Wisdom","Prophets","Gospels","Acts & Epistles"]});expect(ics).toContain("BEGIN:VCALENDAR");expect(ics).toContain("DTSTART;TZID=Europe/Berlin:20260817T050000");expect(ics).toContain("Genesis 42");expect((ics.match(/BEGIN:VEVENT/g)??[])).toHaveLength(2)});
 });
 
 describe("USFM mapping",()=>{
