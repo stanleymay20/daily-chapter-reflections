@@ -3,6 +3,8 @@ export const LOCAL_STUDY_KEYS=[
   "bible-study:saved-verses:v1",
   "bible-study:chapter-study:v1",
   "bible-study:daily-review:v1",
+  "bible-study:personal-prayers:v1",
+  "bible-study:prayer-status:v1",
   "7cbs.progress.v1",
   "7cbs.notes.v1",
   "7cbs.selected-version",
