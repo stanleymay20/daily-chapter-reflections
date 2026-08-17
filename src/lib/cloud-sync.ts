@@ -1,5 +1,5 @@
 import { DEFAULT_SETTINGS, type AppSettings } from "./app-state";
-import { requireSupabase } from "./supabase.client";
+import { requireSupabase } from "./supabase";
 
 const SETTINGS_KEY = "bible-study:settings:v1";
 const PROGRESS_KEY = "7cbs.progress.v1";
