@@ -11,6 +11,10 @@ export type StudyInsights = {
   applications: string[];
   prayerPrompts: string[];
   deeperStudy: string[];
+  eventSequence: string[];
+  visualTimeline: string[];
+  relationships: string[];
+  placeNotes: string[];
 };
 
 export type AskChapterAnswer = {
@@ -25,7 +29,7 @@ type Result = { ok: true; insights: StudyInsights } | { ok: false; error: string
 type AskResult = { ok: true; answer: AskChapterAnswer } | { ok: false; error: string };
 
 function empty(): StudyInsights {
-  return { summary:"", themes:[], context:"", peoplePlaces:[], crossReferences:[], reflectionQuestions:[], applications:[], prayerPrompts:[], deeperStudy:[] };
+  return { summary:"", themes:[], context:"", peoplePlaces:[], crossReferences:[], reflectionQuestions:[], applications:[], prayerPrompts:[], deeperStudy:[], eventSequence:[], visualTimeline:[], relationships:[], placeNotes:[] };
 }
 
 function parseJson<T>(text: string): T | null {
@@ -43,7 +47,7 @@ async function chapterSource(versionId:string,passage:string){
 async function gateway(prompt:string,system:string){
   const key=process.env["LOVABLE_API_KEY"];
   if(!key) throw new Error("AI study tools are not configured on this deployment.");
-  const response=await fetch("https://ai.gateway.lovable.dev/v1/chat/completions",{method:"POST",headers:{Authorization:`Bearer ${key}`,"Content-Type":"application/json"},body:JSON.stringify({model:"google/gemini-3-flash",temperature:0.15,messages:[{role:"system",content:system},{role:"user",content:prompt}]})});
+  const response=await fetch("https://ai.gateway.lovable.dev/v1/chat/completions",{method:"POST",headers:{Authorization:`Bearer ${key}`,"Content-Type":"application/json"},body:JSON.stringify({model:"google/gemini-3-flash",temperature:0.12,messages:[{role:"system",content:system},{role:"user",content:prompt}]})});
   if(!response.ok) throw new Error(`AI service returned ${response.status}.`);
   const json=await response.json() as {choices?:Array<{message?:{content?:string}}>};
   return json.choices?.[0]?.message?.content||"";
@@ -55,8 +59,8 @@ export const generateInsightsFn = createServerFn({ method: "POST" })
     if (!isValidVersionId(data.versionId) || !isValidPassageId(data.passage)) return { ok:false, error:"Invalid passage or translation." };
     try {
       const {chapter,source}=await chapterSource(data.versionId,data.passage);
-      const prompt=`Create careful Bible study assistance grounded primarily in the supplied chapter. Never present your words as Scripture and never invent a Bible quotation. Clearly qualify historical/cultural claims. If a cross-reference is uncertain, omit it. Use verse references when discussing the supplied text.\n\nChapter: ${chapter.reference}\n\nSOURCE TEXT:\n${source}\n\nReturn ONLY valid JSON with keys: summary (string), themes (string[]), context (string), peoplePlaces (string[]), crossReferences (string[] references plus one-sentence relevance), reflectionQuestions (string[]), applications (string[]), prayerPrompts (string[]), deeperStudy (string[]).`;
-      const content=await gateway(prompt,"You are a careful Bible study assistant. The supplied Scripture is source material; your output is study guidance, never Scripture. Distinguish explicit text, reasonable inference, and uncertain background claims.");
+      const prompt=`Create careful Bible study assistance grounded primarily in the supplied chapter. Never present your words as Scripture and never invent a Bible quotation. Clearly qualify historical/cultural claims. If a cross-reference is uncertain, omit it. Use verse references when discussing the supplied text. For visual study aids, eventSequence must follow only events explicitly present in this chapter. visualTimeline may describe the chapter's internal sequence only unless chronology is explicitly stated. relationships must describe relationships actually evident in the chapter. placeNotes must avoid invented coordinates, distances, archaeology, or geography; if the chapter itself gives insufficient information, keep the item minimal or omit it.\n\nChapter: ${chapter.reference}\n\nSOURCE TEXT:\n${source}\n\nReturn ONLY valid JSON with keys: summary (string), themes (string[]), context (string), peoplePlaces (string[]), crossReferences (string[] references plus one-sentence relevance), reflectionQuestions (string[]), applications (string[]), prayerPrompts (string[]), deeperStudy (string[]), eventSequence (string[] in chapter order), visualTimeline (string[] concise sequence labels), relationships (string[]), placeNotes (string[]).`;
+      const content=await gateway(prompt,"You are a careful Bible study assistant. The supplied Scripture is source material; your output is study guidance, never Scripture. Distinguish explicit text, reasonable inference, and uncertain background claims. Visual aids must not manufacture facts.");
       const parsed=parseJson<StudyInsights>(content);
       if(!parsed) return {ok:false,error:"AI response could not be parsed. Please regenerate."};
       return {ok:true,insights:{...empty(),...parsed}};
