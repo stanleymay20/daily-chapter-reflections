@@ -15,5 +15,17 @@ jobs:
           bun-version: latest
       - run: bun install --frozen-lockfile
       - run: bun run test
-      - run: bun run typecheck
+      - name: Typecheck
+        shell: bash
+        run: |
+          set +e
+          output="$(bun run typecheck 2>&1)"
+          code=$?
+          printf '%s\n' "$output"
+          if [ "$code" -ne 0 ]; then
+            while IFS= read -r line; do
+              printf '::error::%s\n' "$line"
+            done <<< "$output"
+            exit "$code"
+          fi
       - run: bun run build
