@@ -17,7 +17,7 @@ export function TranslationPicker({
   onChange: (id: string) => void;
 }) {
   return (
-    <Select value={value ?? undefined} onValueChange={onChange}>
+    <Select {...(value ? { value } : {})} onValueChange={onChange}>
       <SelectTrigger className="h-9 w-full max-w-[240px] text-sm" aria-label="Translation">
         <SelectValue placeholder="Choose translation" />
       </SelectTrigger>
