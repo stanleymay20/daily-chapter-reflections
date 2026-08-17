@@ -4,7 +4,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
-import { requireSupabase } from "@/lib/supabase.client";
+import { requireSupabase } from "@/lib/supabase";
 
 export const Route = createFileRoute("/community")({ component: CommunityPage });
 
