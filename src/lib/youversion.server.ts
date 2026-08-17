@@ -74,13 +74,13 @@ function toVersion(raw: RawBible): BibleVersion {
       ? language
       : language && typeof language === "object"
         ? str(language as RawBible, "name", "local_name", "iso_639_3")
-        : "";
+        : str(raw, "language_tag");
   return {
     id: str(raw, "id", "version_id"),
-    name: str(raw, "local_title", "title", "name", "local_abbreviation"),
-    abbreviation: str(raw, "local_abbreviation", "abbreviation", "abbr"),
+    name: str(raw, "title", "localized_title", "local_title", "name", "abbreviation"),
+    abbreviation: str(raw, "abbreviation", "localized_abbreviation", "local_abbreviation", "abbr"),
     language: languageName,
-    copyright: str(raw, "copyright_short", "copyright", "copyright_long", "publisher"),
+    copyright: str(raw, "copyright", "copyright_short", "copyright_long", "publisher_url"),
   };
 }
 
@@ -96,14 +96,16 @@ function collection(payload: unknown): RawBible[] {
 }
 
 export async function listBibles(): Promise<BibleVersion[]> {
-  // The Platform API requires a language filter; page_size max is 99.
+  // The Platform API requires a language filter; "eng-*" is the accepted
+  // English range ("eng" alone returns 204). page_size max is 99.
   const payload = await request<unknown>(
-    "/bibles?language_ranges%5B%5D=eng&page_size=99",
+    "/bibles?language_ranges%5B%5D=eng-*&page_size=99",
   );
   return collection(payload)
     .map(toVersion)
     .filter((b) => b.id);
 }
+
 
 function stripTags(html: string): string {
   return html
@@ -131,9 +133,26 @@ export function splitVerses(text: string): { number: string; text: string }[] {
   return verses;
 }
 
+/** Parse the API's HTML chapter markup (verse labels in <span class="yv-vlbl">). */
+export function parseHtmlVerses(html: string): { number: string; text: string }[] {
+  const matches = [...html.matchAll(/<span[^>]*class="yv-vlbl"[^>]*>(\d{1,3})<\/span>/g)];
+  if (matches.length === 0) {
+    const plain = stripTags(html);
+    return plain ? [{ number: "", text: plain }] : [];
+  }
+  const verses: { number: string; text: string }[] = [];
+  matches.forEach((m, i) => {
+    const start = (m.index ?? 0) + m[0].length;
+    const end = i + 1 < matches.length ? (matches[i + 1]!.index ?? html.length) : html.length;
+    const body = stripTags(html.slice(start, end));
+    if (body) verses.push({ number: m[1]!, text: body });
+  });
+  return verses;
+}
+
 export async function getPassage(versionId: string, passage: string): Promise<PassageResult> {
   const payload = await request<Record<string, unknown>>(
-    `/bibles/${encodeURIComponent(versionId)}/passages/${encodeURIComponent(passage)}`,
+    `/bibles/${encodeURIComponent(versionId)}/passages/${encodeURIComponent(passage)}?format=html`,
   );
 
   const data =
@@ -154,7 +173,8 @@ export async function getPassage(versionId: string, passage: string): Promise<Pa
       }))
       .filter((v) => v.text);
   }
-  if (verses.length === 0 && contentRaw) verses = splitVerses(stripTags(contentRaw));
+  if (verses.length === 0 && contentRaw) verses = parseHtmlVerses(contentRaw);
+
 
   if (verses.length === 0) {
     throw new Error(encodeApiError(normalizeApiError(404, "No text returned for this passage.")));

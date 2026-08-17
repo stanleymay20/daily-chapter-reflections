@@ -27,7 +27,7 @@ Until the secret exists, every screen shows the setup state
 
 ## 3. Translations
 
-- `GET /bibles` lists the versions available to your app key.
+- `GET /bibles?language_ranges[]=eng-*&page_size=99` lists the English versions available to your app key (the bare `eng` range returns `204`).
 - The app prefers **BSB (id 3034)** when the key grants it, otherwise the first English version returned, otherwise the first version.
 - NIV (111) is never assumed; if your key returns it, it simply appears in the picker.
 - The copyright/attribution string returned by the API is displayed under the chapter text, along with a "Source: YouVersion Platform" indicator.
