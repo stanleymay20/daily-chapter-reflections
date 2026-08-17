@@ -13,7 +13,7 @@ export function TranslationPicker({
   onChange,
 }: {
   bibles: BibleVersion[];
-  value: string | undefined;
+  value?: string;
   onChange: (id: string) => void;
 }) {
   return (
