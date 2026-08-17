@@ -19,7 +19,12 @@ import { loadChapterStudy, saveChapterStudy, type ChapterStudy } from "@/lib/stu
 import { encodeApiError, isValidPassageId } from "@/lib/youversion";
 import { getPassageFn, listBiblesFn } from "@/lib/youversion.functions";
 
-export const Route = createFileRoute("/read/$passage")({ component: Reader });
+type ReaderSearch={date?:string};
+const DATE_RE=/^\d{4}-\d{2}-\d{2}$/;
+export const Route = createFileRoute("/read/$passage")({
+  validateSearch:(search:Record<string,unknown>):ReaderSearch=>typeof search["date"]==="string"&&DATE_RE.test(search["date"] as string)?{date:search["date"] as string}:{},
+  component: Reader,
+});
 
 type Stage="read"|"understand"|"explore"|"reflect"|"pray";
 const stages:{id:Stage;label:string;icon:typeof BookOpenCheck}[]=[
@@ -34,10 +39,12 @@ const bg:Record<HighlightColor,string>={yellow:"bg-yellow-200/70 dark:bg-yellow-
 
 function Reader(){
   const {passage}=Route.useParams();
+  const search=Route.useSearch();
   const today=berlinToday();
+  const studyDate=search.date&&getPlanForDate(search.date)?search.date:today;
   const found=findChapterByPassageId(passage);
   const label=found?`${found.ref.book} ${found.ref.chapter}`:passage;
-  const {statusOf,setStatus}=useProgress(today);
+  const {statusOf,setStatus}=useProgress(studyDate);
   const {note,save}=useNotes(passage);
   const {versionId,select,ready}=useSelectedVersion();
   const [stage,setStage]=useState<Stage>("read");
@@ -56,7 +63,7 @@ function Reader(){
   const settings=useMemo(()=>loadSettings(),[]);
   const visibleStages=useMemo(()=>settings.studyMode==="read"?stages.filter(s=>s.id==="read"||s.id==="pray"):settings.studyMode==="quick"?stages.filter(s=>s.id==="read"||s.id==="reflect"||s.id==="pray"):stages,[settings.studyMode]);
 
-  useEffect(()=>{setSaved(loadSavedVerses());setStudy(loadChapterStudy(passage));setStatus(passage,statusOf(passage)==="complete"?"complete":"reading");setStage("read")},[passage]);
+  useEffect(()=>{setSaved(loadSavedVerses());setStudy(loadChapterStudy(passage));setStatus(passage,statusOf(passage)==="complete"?"complete":"reading");setStage("read")},[passage,studyDate]);
   useEffect(()=>()=>{cancelSpeech.current=true;if(typeof window!=="undefined")window.speechSynthesis?.cancel()},[]);
 
   const listBibles=useServerFn(listBiblesFn);const getPassage=useServerFn(getPassageFn);const generateInsights=useServerFn(generateInsightsFn);const askChapter=useServerFn(askChapterFn);
@@ -66,7 +73,7 @@ function Reader(){
   const passageQuery=useQuery({queryKey:["passage",active?.id,passage],queryFn:async()=>{const res=await getPassage({data:{versionId:active!.id,passage}});if(!res.ok)throw new Error(encodeApiError(res.error));return res.passage;},enabled:Boolean(active?.id)&&isValidPassageId(passage),retry:false});
   const verses=passageQuery.data?.verses??[];
   const copyright=passageQuery.data?.copyright||active?.copyright||"";
-  const currentPlan=getPlanForDate(today)?.chapters??[];
+  const currentPlan=getPlanForDate(studyDate)?.chapters??[];
   const currentIndex=currentPlan.findIndex(c=>passageId(c.usfm,c.chapter)===passage);
   const nextRef=currentIndex>=0?currentPlan[currentIndex+1]:undefined;
   const nextPassage=nextRef?passageId(nextRef.usfm,nextRef.chapter):null;
@@ -87,7 +94,7 @@ function Reader(){
 
   return <main className={`mx-auto min-h-screen px-4 pb-32 pt-5 sm:px-6 ${readingWidthClass(settings.readingWidth)}`}>
     <header className="sticky top-0 z-30 -mx-4 border-b bg-background/92 px-4 pb-3 pt-2 backdrop-blur sm:-mx-6 sm:px-6">
-      <div className="flex items-center justify-between gap-2"><Link to="/"><Button variant="ghost" size="sm" className="-ml-2"><ChevronLeft className="mr-1 size-4"/>Today</Button></Link><div className="min-w-0 flex-1 text-center"><p className="truncate font-[family-name:var(--font-scripture)] text-lg font-semibold">{label}</p><p className="text-[10px] text-muted-foreground">{found?.ref.track??"Bible study"} · {settings.studyMode==="read"?"Just read":`${settings.studyMode} study`} · YouVersion</p></div>{bibles.length?<TranslationPicker bibles={bibles} {...(active?{value:active.id}:{})} onChange={select}/>:<span className="w-8"/>}</div>
+      <div className="flex items-center justify-between gap-2"><Link to={studyDate===today?"/":"/calendar"}><Button variant="ghost" size="sm" className="-ml-2"><ChevronLeft className="mr-1 size-4"/>{studyDate===today?"Today":"Calendar"}</Button></Link><div className="min-w-0 flex-1 text-center"><p className="truncate font-[family-name:var(--font-scripture)] text-lg font-semibold">{label}</p><p className="text-[10px] text-muted-foreground">{studyDate!==today?`${studyDate} · `:""}{found?.ref.track??"Bible study"} · {settings.studyMode==="read"?"Just read":`${settings.studyMode} study`} · YouVersion</p></div>{bibles.length?<TranslationPicker bibles={bibles} {...(active?{value:active.id}:{})} onChange={select}/>:<span className="w-8"/>}</div>
       {currentIndex>=0?<Progress className="mt-2 h-1" value={progress}/>:null}
     </header>
 
@@ -114,7 +121,7 @@ function Reader(){
 
     {stage==="reflect"?<section className="mt-6"><h2 className="font-[family-name:var(--font-scripture)] text-3xl font-semibold">Reflect</h2><p className="mt-1 text-sm text-muted-foreground">Think before asking for more information. These answers become part of your study memory.</p><div className="mt-5 space-y-4"><ReflectionField label="Observe" prompt="What does the chapter actually say or emphasize?" value={study.reflections.observation??""} onChange={v=>updateStudy({reflections:{observation:v}})}/><ReflectionField label="Understand" prompt="What seems to be happening, and what evidence in the chapter supports that?" value={study.reflections.understanding??""} onChange={v=>updateStudy({reflections:{understanding:v}})}/><ReflectionField label="Reflect" prompt="What challenged, encouraged, surprised, or convicted you?" value={study.reflections.reflection??""} onChange={v=>updateStudy({reflections:{reflection:v}})}/><ReflectionField label="Apply" prompt="What is one concrete response you can make today?" value={study.reflections.application??""} onChange={v=>updateStudy({reflections:{application:v}})}/></div>{insights?.reflectionQuestions?.length?<StudyCard title="Optional study-guide questions" items={insights.reflectionQuestions}/>:null}<div className="mt-5 flex justify-end"><Button onClick={()=>setStage("pray")}>Pray from what you read<ChevronRight className="ml-1 size-4"/></Button></div></section>:null}
 
-    {stage==="pray"?<section className="mt-6"><div className="flex items-center gap-2"><Heart className="size-5 text-primary"/><h2 className="font-[family-name:var(--font-scripture)] text-3xl font-semibold">Pray</h2></div><p className="mt-2 text-sm text-muted-foreground">Respond in your own words. The app saves your prayer; it does not need to compose one for you.</p>{insights?.prayerPrompts?.length&&settings.studyMode!=="read"?<StudyCard title="Optional prayer prompts" items={insights.prayerPrompts}/>:null}<Textarea className="mt-4 min-h-40" value={study.prayer??""} onChange={e=>updateStudy({prayer:e.target.value})} placeholder="God, from what I read today…"/><Card className="mt-5 p-4"><div className="flex items-center gap-2"><Check className="size-4 text-primary"/><h3 className="font-semibold">Finish this chapter</h3></div><p className="mt-2 text-sm text-muted-foreground">Mark complete when you have finished the reading. Your notes, highlights, reflections and prayer remain in your journal.</p><Button className="mt-4 w-full" onClick={complete} disabled={completed}>{completed?<><Check className="mr-2 size-4"/>Chapter complete</>:"Complete chapter"}</Button>{completed&&nextPassage&&nextRef?<Link className="mt-3 block" to="/read/$passage" params={{passage:nextPassage}}><Button variant="outline" className="w-full">Next · {chapterLabel(nextRef)}<ChevronRight className="ml-1 size-4"/></Button></Link>:completed?<Link className="mt-3 block" to="/"><Button variant="outline" className="w-full">Return to today's review</Button></Link>:null}</Card></section>:null}
+    {stage==="pray"?<section className="mt-6"><div className="flex items-center gap-2"><Heart className="size-5 text-primary"/><h2 className="font-[family-name:var(--font-scripture)] text-3xl font-semibold">Pray</h2></div><p className="mt-2 text-sm text-muted-foreground">Respond in your own words. The app saves your prayer; it does not need to compose one for you.</p>{insights?.prayerPrompts?.length&&settings.studyMode!=="read"?<StudyCard title="Optional prayer prompts" items={insights.prayerPrompts}/>:null}<Textarea className="mt-4 min-h-40" value={study.prayer??""} onChange={e=>updateStudy({prayer:e.target.value})} placeholder="God, from what I read today…"/><Card className="mt-5 p-4"><div className="flex items-center gap-2"><Check className="size-4 text-primary"/><h3 className="font-semibold">Finish this chapter</h3></div><p className="mt-2 text-sm text-muted-foreground">Mark complete when you have finished the reading. Your notes, highlights, reflections and prayer remain in your journal.</p><Button className="mt-4 w-full" onClick={complete} disabled={completed}>{completed?<><Check className="mr-2 size-4"/>Chapter complete</>:"Complete chapter"}</Button>{completed&&nextPassage&&nextRef?<Link className="mt-3 block" to="/read/$passage" params={{passage:nextPassage}} search={{date:studyDate}}><Button variant="outline" className="w-full">Next · {chapterLabel(nextRef)}<ChevronRight className="ml-1 size-4"/></Button></Link>:completed?<Link className="mt-3 block" to={studyDate===today?"/":"/calendar"}><Button variant="outline" className="w-full">{studyDate===today?"Return to today's review":"Return to calendar"}</Button></Link>:null}</Card></section>:null}
   </main>;
 }
 
