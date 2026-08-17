@@ -1,38 +1,28 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { ChevronLeft, ChevronRight } from "lucide-react";
-import { useMemo, useState } from "react";
+import { Link, createFileRoute } from "@tanstack/react-router";
+import { Check, ChevronLeft, ChevronRight, Circle, CircleDot } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
+import { DEFAULT_SETTINGS, loadSettings, type AppSettings } from "@/lib/app-state";
 import { berlinToday, chapterLabel, getPlanForDate, passageId } from "@/lib/schedule";
-import { useProgress } from "@/hooks/useReadingState";
 
-export const Route = createFileRoute("/calendar")({ component: CalendarPage });
-
-function iso(y:number,m:number,d:number){return `${y}-${String(m+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;}
+export const Route=createFileRoute("/calendar")({component:CalendarPage});
+type Store=Record<string,string>;
+function iso(y:number,m:number,d:number){return `${y}-${String(m+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`}
+function readProgress():Store{if(typeof window==="undefined")return{};try{return JSON.parse(localStorage.getItem("7cbs.progress.v1")||"{}") as Store}catch{return{}}}
 
 function CalendarPage(){
-  const today=berlinToday();
-  const [year,setYear]=useState(Number(today.slice(0,4)));
-  const [month,setMonth]=useState(Number(today.slice(5,7))-1);
-  const [selected,setSelected]=useState(today);
-  const plan=getPlanForDate(selected);
-  const { completedCount }=useProgress(selected);
-  const first=new Date(Date.UTC(year,month,1));
-  const days=new Date(Date.UTC(year,month+1,0)).getUTCDate();
-  const offset=(first.getUTCDay()+6)%7;
-  const cells=useMemo(()=>Array.from({length:offset+days},(_,i)=>i<offset?null:i-offset+1),[offset,days]);
-  const monthName=new Intl.DateTimeFormat("en-GB",{month:"long",year:"numeric",timeZone:"UTC"}).format(first);
-  const move=(delta:number)=>{const d=new Date(Date.UTC(year,month+delta,1));setYear(d.getUTCFullYear());setMonth(d.getUTCMonth());};
-  const done=plan?completedCount(plan.chapters.map(c=>passageId(c.usfm,c.chapter))):0;
-  return <main className="mx-auto min-h-screen w-full max-w-md px-5 pb-28 pt-8">
-    <div className="flex items-center justify-between"><h1 className="font-[family-name:var(--font-scripture)] text-3xl font-semibold">Calendar</h1><Button variant="outline" size="sm" onClick={()=>{setSelected(today);setYear(+today.slice(0,4));setMonth(+today.slice(5,7)-1)}}>Today</Button></div>
-    <Card className="mt-5 p-4">
-      <div className="flex items-center justify-between"><Button variant="ghost" size="icon" onClick={()=>move(-1)}><ChevronLeft className="size-4"/></Button><strong>{monthName}</strong><Button variant="ghost" size="icon" onClick={()=>move(1)}><ChevronRight className="size-4"/></Button></div>
-      <div className="mt-3 grid grid-cols-7 text-center text-[10px] uppercase tracking-wide text-muted-foreground">{["M","T","W","T","F","S","S"].map((x,i)=><span key={`${x}-${i}`}>{x}</span>)}</div>
-      <div className="mt-1 grid grid-cols-7 gap-1">{cells.map((d,i)=>d===null?<div key={`e-${i}`}/>:<button key={d} onClick={()=>setSelected(iso(year,month,d))} className={`aspect-square rounded-lg text-sm ${selected===iso(year,month,d)?"bg-primary text-primary-foreground":iso(year,month,d)===today?"border border-primary":"hover:bg-accent"}`}>{d}</button>)}</div>
-    </Card>
-    <section className="mt-5"><div className="flex items-center justify-between"><h2 className="font-medium">{selected}</h2><span className="text-xs text-muted-foreground">{done}/{plan?.chapters.length??0} complete</span></div>
-      <div className="mt-3 space-y-2">{plan?.chapters.map(c=>{const id=passageId(c.usfm,c.chapter);return <Link key={id} to="/read/$passage" params={{passage:id}}><Card className="flex items-center justify-between p-3"><div><p className="font-[family-name:var(--font-scripture)]">{chapterLabel(c)}</p><p className="text-xs text-muted-foreground">{c.track}</p></div><span className="text-xs text-muted-foreground">Read</span></Card></Link>})}</div>
-    </section>
+  const today=berlinToday();const [year,setYear]=useState(Number(today.slice(0,4)));const [month,setMonth]=useState(Number(today.slice(5,7))-1);const [selected,setSelected]=useState(today);const [store,setStore]=useState<Store>({});const [settings,setSettings]=useState<AppSettings>(DEFAULT_SETTINGS);
+  useEffect(()=>{setStore(readProgress());setSettings(loadSettings())},[]);
+  const first=new Date(Date.UTC(year,month,1));const days=new Date(Date.UTC(year,month+1,0)).getUTCDate();const offset=(first.getUTCDay()+6)%7;const cells=useMemo(()=>Array.from({length:offset+days},(_,i)=>i<offset?null:i-offset+1),[offset,days]);const monthName=new Intl.DateTimeFormat("en-GB",{month:"long",year:"numeric",timeZone:"UTC"}).format(first);
+  const move=(delta:number)=>{const d=new Date(Date.UTC(year,month+delta,1));setYear(d.getUTCFullYear());setMonth(d.getUTCMonth())};
+  const chaptersFor=(date:string)=>{const all=getPlanForDate(date)?.chapters??[];return all.filter(c=>settings.activeTracks.includes(c.track)).slice(0,Math.max(1,settings.chaptersPerDay))};
+  const completion=(date:string)=>{const rows=chaptersFor(date);const done=rows.filter(c=>store[`${date}|${passageId(c.usfm,c.chapter)}`]==="complete").length;return{done,total:rows.length}};
+  const chapters=chaptersFor(selected);const selectedStats=completion(selected);const next=chapters.find(c=>store[`${selected}|${passageId(c.usfm,c.chapter)}`]!=="complete");
+  return <main className="mx-auto min-h-screen w-full max-w-2xl px-4 pb-28 pt-8 sm:px-6">
+    <div className="flex items-end justify-between"><div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Your study rhythm</p><h1 className="mt-1 font-[family-name:var(--font-scripture)] text-4xl font-semibold">Calendar</h1></div><Button variant="outline" size="sm" onClick={()=>{setSelected(today);setYear(+today.slice(0,4));setMonth(+today.slice(5,7)-1)}}>Today</Button></div>
+    <Card className="mt-6 p-4 sm:p-5"><div className="flex items-center justify-between"><Button variant="ghost" size="icon" onClick={()=>move(-1)} aria-label="Previous month"><ChevronLeft className="size-4"/></Button><strong>{monthName}</strong><Button variant="ghost" size="icon" onClick={()=>move(1)} aria-label="Next month"><ChevronRight className="size-4"/></Button></div><div className="mt-4 grid grid-cols-7 text-center text-[10px] uppercase tracking-wide text-muted-foreground">{["M","T","W","T","F","S","S"].map((x,i)=><span key={`${x}-${i}`}>{x}</span>)}</div><div className="mt-2 grid grid-cols-7 gap-1">{cells.map((d,i)=>d===null?<div key={`e-${i}`}/>:(()=>{const date=iso(year,month,d);const st=completion(date);const ratio=st.total?st.done/st.total:0;return <button key={d} onClick={()=>setSelected(date)} className={`relative aspect-square rounded-xl text-sm transition ${selected===date?"bg-primary text-primary-foreground":date===today?"border border-primary":"hover:bg-accent"}`}><span>{d}</span>{st.done>0?<span className={`absolute bottom-1 left-1/2 h-1 -translate-x-1/2 rounded-full ${selected===date?"bg-primary-foreground":ratio===1?"w-3 bg-primary":"w-1.5 bg-primary/50"}`}/>:null}</button>})())}</div></Card>
+    <section className="mt-6"><div className="flex items-center justify-between"><div><p className="text-xs text-muted-foreground">{selected}</p><h2 className="font-[family-name:var(--font-scripture)] text-2xl font-semibold">Daily study</h2></div><span className="text-sm font-medium">{selectedStats.done}/{selectedStats.total}</span></div><Progress className="mt-3 h-2" value={selectedStats.total?(selectedStats.done/selectedStats.total)*100:0}/>{next?<Link className="mt-4 block" to="/read/$passage" params={{passage:passageId(next.usfm,next.chapter)}}><Button className="w-full">{selectedStats.done?"Continue":"Start"} {selected===today?"today's":"this day's"} study<ChevronRight className="ml-1 size-4"/></Button></Link>:selectedStats.total?<Card className="mt-4 p-4 text-center text-sm">This day is complete.</Card>:null}<div className="mt-4 space-y-2">{chapters.map(c=>{const id=passageId(c.usfm,c.chapter);const status=store[`${selected}|${id}`]??"not_started";const Icon=status==="complete"?Check:status==="reading"?CircleDot:Circle;return <Link key={id} to="/read/$passage" params={{passage:id}}><Card className="flex items-center gap-3 p-3"><Icon className={`size-4 ${status==="complete"?"text-primary":"text-muted-foreground"}`}/><div className="min-w-0 flex-1"><p className="font-[family-name:var(--font-scripture)] text-lg">{chapterLabel(c)}</p><p className="text-xs text-muted-foreground">{c.track}</p></div><span className="text-xs capitalize text-muted-foreground">{status.replace("_"," ")}</span></Card></Link>})}</div></section>
   </main>;
 }

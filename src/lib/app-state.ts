@@ -1,14 +1,23 @@
+import type { StudyMode } from "./study-state";
+
 export type ThemeMode = "system" | "light" | "dark" | "sepia";
 export type HighlightColor = "yellow" | "green" | "blue" | "pink" | "purple";
+export type ReadingWidth = "narrow" | "comfortable" | "wide";
 
 export type AppSettings = {
   theme: ThemeMode;
   fontSize: number;
   lineHeight: number;
+  readingWidth: ReadingWidth;
+  showVerseNumbers: boolean;
+  distractionFree: boolean;
+  studyMode: StudyMode;
   audioRate: number;
   autoScroll: boolean;
   reminderEnabled: boolean;
   reminderTime: string;
+  eveningReminderEnabled: boolean;
+  eveningReminderTime: string;
   timezone: string;
   chaptersPerDay: number;
   activeTracks: string[];
@@ -33,10 +42,16 @@ export const DEFAULT_SETTINGS: AppSettings = {
   theme: "sepia",
   fontSize: 20,
   lineHeight: 1.9,
+  readingWidth: "comfortable",
+  showVerseNumbers: true,
+  distractionFree: false,
+  studyMode: "standard",
   audioRate: 1,
   autoScroll: false,
   reminderEnabled: true,
   reminderTime: "05:00",
+  eveningReminderEnabled: false,
+  eveningReminderTime: "19:00",
   timezone: "Europe/Berlin",
   chaptersPerDay: 7,
   activeTracks: ["Law", "History", "Psalms", "Wisdom", "Prophets", "Gospels", "Acts & Epistles"],
@@ -76,4 +91,8 @@ export function removeSavedVerse(id: string) {
 export function safeShareText(reference: string, text: string, max = 180) {
   const clean = text.replace(/\s+/g, " ").trim();
   return `${reference} — ${clean.length > max ? `${clean.slice(0, max - 1)}…` : clean}`;
+}
+
+export function readingWidthClass(width: ReadingWidth) {
+  return width === "narrow" ? "max-w-xl" : width === "wide" ? "max-w-4xl" : "max-w-2xl";
 }
