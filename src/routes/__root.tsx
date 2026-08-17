@@ -24,6 +24,6 @@ function RootShell({children}:{children:ReactNode}){return <html lang="en"><head
 
 function RootComponent(){
   const {queryClient}=Route.useRouteContext();
-  useEffect(()=>{const s=loadSettings();document.documentElement.dataset.theme=s.theme;},[]);
+  useEffect(()=>{const s=loadSettings();document.documentElement.dataset["theme"]=s.theme;},[]);
   return <QueryClientProvider client={queryClient}><Outlet/><AppNav/></QueryClientProvider>;
 }
