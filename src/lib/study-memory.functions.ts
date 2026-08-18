@@ -38,10 +38,16 @@ export const askStudyMemoryFn = createServerFn({ method: "POST" })
     try {
       const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method:"POST",
-        headers:{Authorization:`Bearer ${key}`,"Content-Type":"application/json"},
-        body:JSON.stringify({model:"google/gemini-3-flash",temperature:0.1,messages:[{role:"system",content:"You are a private study-memory assistant. You summarize only the user's supplied writings and never manufacture Scripture or personal history."},{role:"user",content:prompt}]})
+        headers:{"Lovable-API-Key":key,"Content-Type":"application/json"},
+        body:JSON.stringify({model:"google/gemini-3.6-flash",messages:[{role:"system",content:"You are a private study-memory assistant. You summarize only the user's supplied writings and never manufacture Scripture or personal history."},{role:"user",content:prompt}]})
       });
-      if(!response.ok) return {ok:false,error:`AI service returned ${response.status}.`};
+      if(!response.ok){
+        const body=await response.text();
+        let message:string|undefined;
+        try{message=(JSON.parse(body) as {message?:string}).message;}catch{/* non-JSON */}
+        const { gatewayErrorMessage } = await import("./insights.functions");
+        return {ok:false,error:gatewayErrorMessage(response.status,message)};
+      }
       const json=await response.json() as {choices?:Array<{message?:{content?:string}}>};
       const parsed=parse(json.choices?.[0]?.message?.content||"");
       return parsed?{ok:true,answer:parsed}:{ok:false,error:"Study Memory response could not be parsed. Please try again."};
