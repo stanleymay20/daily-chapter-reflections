@@ -87,10 +87,10 @@ function Reader(){
   },[]);
 
   const listBibles=useServerFn(listBiblesFn);const getPassage=useServerFn(getPassageFn);const generateInsights=useServerFn(generateInsightsFn);const askChapter=useServerFn(askChapterFn);
-  const biblesQuery=useQuery({queryKey:["bibles"],queryFn:async()=>{const res=await listBibles();if(!res.ok)throw new Error(encodeApiError(res.error));return res;},retry:false,staleTime:3600000});
-  const bibles=biblesQuery.data?.bibles??[];
+  const biblesQuery=useQuery({queryKey:["bibles","english"],queryFn:async()=>{const res=await listBibles();if(!res.ok)throw new Error(encodeApiError(res.error));return Array.isArray(res.bibles)?res.bibles:[];},retry:false,staleTime:3600000});
+  const bibles=Array.isArray(biblesQuery.data)?biblesQuery.data:[];
   const active=useMemo(()=>ready?pickDefaultVersion(bibles,versionId):undefined,[bibles,versionId,ready]);
-  const passageQuery=useQuery({queryKey:["passage",active?.id,passage],queryFn:async()=>{const res=await getPassage({data:{versionId:active!.id,passage}});if(!res.ok)throw new Error(encodeApiError(res.error));return res.passage;},enabled:Boolean(active?.id)&&isValidPassageId(passage),retry:false});
+  const passageQuery=useQuery({queryKey:["passage",active?.id,passage],queryFn:async()=>{if(!active)throw new Error("No Bible translation is selected.");const res=await getPassage({data:{versionId:active.id,passage}});if(!res.ok)throw new Error(encodeApiError(res.error));return res.passage;},enabled:Boolean(active?.id)&&isValidPassageId(passage),retry:false});
   const verses=passageQuery.data?.verses??[];
   const copyright=passageQuery.data?.copyright||active?.copyright||"";
   const currentPlan=getPlanForDate(studyDate)?.chapters??[];

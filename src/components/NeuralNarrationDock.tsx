@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { useLocation } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { Headphones, Loader2, Pause, Play, RotateCcw, Sparkles } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -9,14 +10,16 @@ import { pickDefaultVersion, useSelectedVersion } from "@/hooks/useReadingState"
 import { generateNarrationFn } from "@/lib/narration.functions";
 import { getPassageFn, listBiblesFn } from "@/lib/youversion.functions";
 
-function passageFromPath() {
-  if (typeof window === "undefined") return "";
-  const match = window.location.pathname.match(/^\/read\/([^/]+)/);
-  return match ? decodeURIComponent(match[1]!) : "";
+function passageFromPath(pathname: string) {
+  const match = pathname.match(/^\/read\/([^/]+)/);
+  const encodedPassage = match?.[1];
+  return encodedPassage ? decodeURIComponent(encodedPassage) : "";
 }
 
 export function NeuralNarrationDock() {
-  const passage = passageFromPath();
+  const pathname = useLocation({ select: (location) => location.pathname });
+  const passage = passageFromPath(pathname);
+  const [hydrated, setHydrated] = useState(false);
   const { versionId, ready } = useSelectedVersion();
   const listBibles = useServerFn(listBiblesFn);
   const getPassage = useServerFn(getPassageFn);
@@ -28,12 +31,14 @@ export function NeuralNarrationDock() {
   const [playing, setPlaying] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
+  useEffect(() => setHydrated(true), []);
+
   const biblesQuery = useQuery({
-    queryKey: ["bibles", "narration-dock"],
+    queryKey: ["bibles", "english"],
     queryFn: async () => {
       const result = await listBibles();
       if (!result.ok) throw new Error(result.error.message);
-      return result.bibles;
+      return Array.isArray(result.bibles) ? result.bibles : [];
     },
     enabled: Boolean(passage),
     staleTime: 3_600_000,
@@ -42,7 +47,8 @@ export function NeuralNarrationDock() {
   const passageQuery = useQuery({
     queryKey: ["passage", active?.id, passage],
     queryFn: async () => {
-      const result = await getPassage({ data: { versionId: active!.id, passage } });
+      if (!active) throw new Error("No Bible translation is selected.");
+      const result = await getPassage({ data: { versionId: active.id, passage } });
       if (!result.ok) throw new Error(result.error.message);
       return result.passage;
     },
@@ -51,7 +57,7 @@ export function NeuralNarrationDock() {
   });
 
   useEffect(() => () => { if (src) URL.revokeObjectURL(src); }, [src]);
-  if (!passage) return null;
+  if (!hydrated || !passage) return null;
 
   const buildNarration = async () => {
     if (!passageQuery.data || loading) return;

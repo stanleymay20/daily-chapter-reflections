@@ -35,8 +35,8 @@ function Home(){
   useEffect(()=>{setSettings(loadSettings());setReview(loadDailyReview(today));},[today]);
 
   const listBibles=useServerFn(listBiblesFn);
-  const biblesQuery=useQuery({queryKey:["bibles"],queryFn:async()=>{const res=await listBibles();if(!res.ok)throw new Error(encodeApiError(res.error));return res;},retry:false,staleTime:3600000});
-  const bibles=biblesQuery.data?.bibles??[];
+  const biblesQuery=useQuery({queryKey:["bibles","english"],queryFn:async()=>{const res=await listBibles();if(!res.ok)throw new Error(encodeApiError(res.error));return Array.isArray(res.bibles)?res.bibles:[];},retry:false,staleTime:3600000});
+  const bibles=Array.isArray(biblesQuery.data)?biblesQuery.data:[];
   const active=useMemo(()=>ready?pickDefaultVersion(bibles,versionId):undefined,[bibles,versionId,ready]);
   const chapters=useMemo(()=>{
     const all=plan?.chapters??[];
