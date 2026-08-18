@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { useLocation } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { Headphones, Loader2, Pause, Play, RotateCcw, Sparkles } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -9,14 +10,15 @@ import { pickDefaultVersion, useSelectedVersion } from "@/hooks/useReadingState"
 import { generateNarrationFn } from "@/lib/narration.functions";
 import { getPassageFn, listBiblesFn } from "@/lib/youversion.functions";
 
-function passageFromPath() {
-  if (typeof window === "undefined") return "";
-  const match = window.location.pathname.match(/^\/read\/([^/]+)/);
-  return match ? decodeURIComponent(match[1]!) : "";
+function passageFromPath(pathname: string) {
+  const match = pathname.match(/^\/read\/([^/]+)/);
+  const encodedPassage = match?.[1];
+  return encodedPassage ? decodeURIComponent(encodedPassage) : "";
 }
 
 export function NeuralNarrationDock() {
-  const passage = passageFromPath();
+  const pathname = useLocation({ select: (location) => location.pathname });
+  const passage = passageFromPath(pathname);
   const { versionId, ready } = useSelectedVersion();
   const listBibles = useServerFn(listBiblesFn);
   const getPassage = useServerFn(getPassageFn);
