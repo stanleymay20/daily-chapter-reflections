@@ -29,11 +29,11 @@ export function NeuralNarrationDock() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const biblesQuery = useQuery({
-    queryKey: ["bibles", "narration-dock"],
+    queryKey: ["bibles", "english"],
     queryFn: async () => {
       const result = await listBibles();
       if (!result.ok) throw new Error(result.error.message);
-      return result.bibles;
+      return Array.isArray(result.bibles) ? result.bibles : [];
     },
     enabled: Boolean(passage),
     staleTime: 3_600_000,
@@ -42,7 +42,8 @@ export function NeuralNarrationDock() {
   const passageQuery = useQuery({
     queryKey: ["passage", active?.id, passage],
     queryFn: async () => {
-      const result = await getPassage({ data: { versionId: active!.id, passage } });
+      if (!active) throw new Error("No Bible translation is selected.");
+      const result = await getPassage({ data: { versionId: active.id, passage } });
       if (!result.ok) throw new Error(result.error.message);
       return result.passage;
     },
