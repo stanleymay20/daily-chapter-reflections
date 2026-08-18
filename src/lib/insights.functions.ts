@@ -44,11 +44,24 @@ async function chapterSource(versionId:string,passage:string){
   return {chapter,source};
 }
 
+export function gatewayErrorMessage(status:number,message?:string){
+  if(status===402) return message||"AI credits are exhausted for this workspace. Add credits in Lovable (Settings → Plans & credits) to use AI study tools.";
+  if(status===403) return message||"AI access is blocked by workspace policy or a credit limit.";
+  if(status===429) return "AI service is rate limited right now. Please wait a moment and try again.";
+  if(status>=500) return "AI service is temporarily unavailable. Please try again.";
+  return message||`AI service returned ${status}.`;
+}
+
 async function gateway(prompt:string,system:string){
   const key=process.env["LOVABLE_API_KEY"];
   if(!key) throw new Error("AI study tools are not configured on this deployment.");
-  const response=await fetch("https://ai.gateway.lovable.dev/v1/chat/completions",{method:"POST",headers:{Authorization:`Bearer ${key}`,"Content-Type":"application/json"},body:JSON.stringify({model:"google/gemini-3-flash",temperature:0.12,messages:[{role:"system",content:system},{role:"user",content:prompt}]})});
-  if(!response.ok) throw new Error(`AI service returned ${response.status}.`);
+  const response=await fetch("https://ai.gateway.lovable.dev/v1/chat/completions",{method:"POST",headers:{"Lovable-API-Key":key,"Content-Type":"application/json"},body:JSON.stringify({model:"google/gemini-3.6-flash",messages:[{role:"system",content:system},{role:"user",content:prompt}]})});
+  if(!response.ok){
+    const body=await response.text();
+    let message:string|undefined;
+    try{message=(JSON.parse(body) as {message?:string}).message;}catch{/* non-JSON */}
+    throw new Error(gatewayErrorMessage(response.status,message));
+  }
   const json=await response.json() as {choices?:Array<{message?:{content?:string}}>};
   return json.choices?.[0]?.message?.content||"";
 }
