@@ -19,6 +19,7 @@ function passageFromPath(pathname: string) {
 export function NeuralNarrationDock() {
   const pathname = useLocation({ select: (location) => location.pathname });
   const passage = passageFromPath(pathname);
+  const [hydrated, setHydrated] = useState(false);
   const { versionId, ready } = useSelectedVersion();
   const listBibles = useServerFn(listBiblesFn);
   const getPassage = useServerFn(getPassageFn);
@@ -29,6 +30,8 @@ export function NeuralNarrationDock() {
   const [src, setSrc] = useState("");
   const [playing, setPlaying] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  useEffect(() => setHydrated(true), []);
 
   const biblesQuery = useQuery({
     queryKey: ["bibles", "english"],
@@ -54,7 +57,7 @@ export function NeuralNarrationDock() {
   });
 
   useEffect(() => () => { if (src) URL.revokeObjectURL(src); }, [src]);
-  if (!passage) return null;
+  if (!hydrated || !passage) return null;
 
   const buildNarration = async () => {
     if (!passageQuery.data || loading) return;
