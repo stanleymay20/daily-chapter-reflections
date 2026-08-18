@@ -29,7 +29,7 @@ export function NeuralNarrationDock() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const biblesQuery = useQuery({
-    queryKey: ["bibles"],
+    queryKey: ["bibles", "narration-dock"],
     queryFn: async () => {
       const result = await listBibles();
       if (!result.ok) throw new Error(result.error.message);
