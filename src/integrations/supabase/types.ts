@@ -14,7 +14,307 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      ai_insights_cache: {
+        Row: {
+          generated_at: string
+          insights: Json
+          passage: string
+          user_id: string
+          version_id: number
+        }
+        Insert: {
+          generated_at?: string
+          insights: Json
+          passage: string
+          user_id: string
+          version_id: number
+        }
+        Update: {
+          generated_at?: string
+          insights?: Json
+          passage?: string
+          user_id?: string
+          version_id?: number
+        }
+        Relationships: []
+      }
+      chapter_notes: {
+        Row: {
+          note: string
+          passage: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          note?: string
+          passage: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          note?: string
+          passage?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      comments: {
+        Row: {
+          body: string
+          created_at: string
+          id: string
+          parent_id: string | null
+          post_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          id?: string
+          parent_id?: string | null
+          post_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          id?: string
+          parent_id?: string | null
+          post_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "comments_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "comments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "comments_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "community_posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      community_posts: {
+        Row: {
+          body: string
+          created_at: string
+          excerpt: string | null
+          id: string
+          reference: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          excerpt?: string | null
+          id?: string
+          reference: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          excerpt?: string | null
+          id?: string
+          reference?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      post_likes: {
+        Row: {
+          created_at: string
+          post_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          post_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          post_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "post_likes_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "community_posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      post_reports: {
+        Row: {
+          created_at: string
+          id: string
+          post_id: string
+          reason: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          post_id: string
+          reason: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          post_id?: string
+          reason?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "post_reports_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "community_posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      reading_progress: {
+        Row: {
+          passage: string
+          reading_date: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          passage: string
+          reading_date: string
+          status: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          passage?: string
+          reading_date?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      study_plans: {
+        Row: {
+          active_tracks: Json
+          chapters_per_day: number
+          created_at: string
+          id: string
+          is_default: boolean
+          name: string
+          paused: boolean
+          start_date: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          active_tracks?: Json
+          chapters_per_day: number
+          created_at?: string
+          id?: string
+          is_default?: boolean
+          name: string
+          paused?: boolean
+          start_date?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          active_tracks?: Json
+          chapters_per_day?: number
+          created_at?: string
+          id?: string
+          is_default?: boolean
+          name?: string
+          paused?: boolean
+          start_date?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_settings: {
+        Row: {
+          settings: Json
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          settings?: Json
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          settings?: Json
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      verse_saves: {
+        Row: {
+          bookmarked: boolean
+          created_at: string
+          highlight: string | null
+          id: string
+          note: string | null
+          passage: string
+          reference: string
+          updated_at: string
+          user_id: string
+          verse: string
+          version_id: number
+        }
+        Insert: {
+          bookmarked?: boolean
+          created_at?: string
+          highlight?: string | null
+          id?: string
+          note?: string | null
+          passage: string
+          reference: string
+          updated_at?: string
+          user_id: string
+          verse: string
+          version_id: number
+        }
+        Update: {
+          bookmarked?: boolean
+          created_at?: string
+          highlight?: string | null
+          id?: string
+          note?: string | null
+          passage?: string
+          reference?: string
+          updated_at?: string
+          user_id?: string
+          verse?: string
+          version_id?: number
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
