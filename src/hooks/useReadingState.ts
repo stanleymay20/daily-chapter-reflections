@@ -112,6 +112,7 @@ export function pickDefaultVersion<T extends { id: string; language: string; abb
   bibles: T[],
   stored?: string | null,
 ): T | undefined {
+  if (!Array.isArray(bibles)) return undefined;
   if (stored) {
     const found = bibles.find((b) => b.id === stored);
     if (found) return found;
