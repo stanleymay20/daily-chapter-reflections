@@ -29,8 +29,13 @@ jobs:
             printf '%s\n' "$tracked_env"
             exit 1
           fi
-          if git grep -nE '(YVP_APP_KEY|LOVABLE_API_KEY|ELEVENLABS_API_KEY|SUPABASE_SERVICE_ROLE_KEY)[[:space:]]*=[[:space:]]*[^<[:space:]][^[:space:]]*' -- . ':!*.example'; then
-            echo "::error::A server-secret-looking assignment is tracked in the repository."
+
+          # Environment reads such as `const KEY = process.env[...]` are valid.
+          # Reject only suspicious literal assignments of server-secret variables.
+          suspicious="$(git grep -nE '(YVP_APP_KEY|LOVABLE_API_KEY|ELEVENLABS_API_KEY|SUPABASE_SERVICE_ROLE_KEY)[[:space:]]*=[[:space:]]*[\"'"'"'][A-Za-z0-9_./+:-]{12,}[\"'"'"']' -- . ':!*.example' || true)"
+          if [ -n "$suspicious" ]; then
+            echo "::error::A hard-coded server secret appears to be tracked in the repository."
+            printf '%s\n' "$suspicious"
             exit 1
           fi
       - run: bun run lint
