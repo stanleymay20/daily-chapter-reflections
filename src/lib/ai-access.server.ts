@@ -37,12 +37,12 @@ function nonNegativeInteger(value: unknown) {
 
 function parseQuota(value: unknown): FeatureQuota | null {
   if (!isRecord(value)) return null;
-  if (typeof value.hourBucket !== "string" || typeof value.dayBucket !== "string") return null;
+  if (typeof value["hourBucket"] !== "string" || typeof value["dayBucket"] !== "string") return null;
   return {
-    hourBucket: value.hourBucket,
-    hourCount: nonNegativeInteger(value.hourCount),
-    dayBucket: value.dayBucket,
-    dayCount: nonNegativeInteger(value.dayCount),
+    hourBucket: value["hourBucket"],
+    hourCount: nonNegativeInteger(value["hourCount"]),
+    dayBucket: value["dayBucket"],
+    dayCount: nonNegativeInteger(value["dayCount"]),
   };
 }
 

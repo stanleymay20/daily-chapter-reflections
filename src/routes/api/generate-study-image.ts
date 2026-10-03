@@ -26,8 +26,9 @@ export const Route = createFileRoute("/api/generate-study-image")({
         const { authorizeAiRequest } = await import("@/lib/ai-access.server");
         const access = await authorizeAiRequest(request, "image");
         if (!access.ok) {
-          const headers = access.retryAfter ? { "Retry-After": String(access.retryAfter) } : undefined;
-          return Response.json({ message: access.error }, { status: access.status, headers });
+          const init: ResponseInit = { status: access.status };
+          if (access.retryAfter) init.headers = { "Retry-After": String(access.retryAfter) };
+          return Response.json({ message: access.error }, init);
         }
 
         const prompt = `Create one calm, historically respectful editorial illustration for a private Bible study guide about ${input.reference}.
