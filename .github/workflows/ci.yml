@@ -5,15 +5,44 @@ on:
   push:
     branches: [main, "chatgpt/**"]
 
+permissions:
+  contents: read
+
 jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
       - run: bun install --frozen-lockfile
+      - name: Repository secret hygiene
+        shell: bash
+        run: |
+          set -euo pipefail
+          tracked_env="$(git ls-files | grep -E '(^|/)\.env($|\.)' | grep -vE '(^|/)\.env\.example$' || true)"
+          if [ -n "$tracked_env" ]; then
+            echo "::error::Tracked environment files are forbidden. Keep only .env.example in Git."
+            printf '%s\n' "$tracked_env"
+            exit 1
+          fi
+
+          # Environment reads such as `const KEY = process.env[...]` are valid.
+          # Reject only suspicious literal assignments of server-secret variables.
+          suspicious="$(git grep -nE '(YVP_APP_KEY|LOVABLE_API_KEY|ELEVENLABS_API_KEY|SUPABASE_SERVICE_ROLE_KEY)[[:space:]]*=[[:space:]]*[\"'"'"'][A-Za-z0-9_./+:-]{12,}[\"'"'"']' -- . ':!*.example' || true)"
+          if [ -n "$suspicious" ]; then
+            echo "::error::A hard-coded server secret appears to be tracked in the repository."
+            printf '%s\n' "$suspicious"
+            exit 1
+          fi
+      # The repository predates the current Prettier baseline and still has
+      # formatting debt. Keep it visible without weakening functional gates.
+      - name: Lint (advisory legacy baseline)
+        continue-on-error: true
+        run: bun run lint
       - run: bun run test
       - name: Typecheck
         shell: bash
