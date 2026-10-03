@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import { z } from "zod";
 
 import {
   decodeApiError,
@@ -18,6 +19,11 @@ export type PassageResponse =
   | { ok: true; passage: PassageResult }
   | { ok: false; error: NormalizedApiError };
 
+const passageSchema = z.object({
+  versionId: z.string().trim().min(1).max(20),
+  passage: z.string().trim().min(1).max(20),
+});
+
 export const listBiblesFn = createServerFn({ method: "GET" }).handler(
   async (): Promise<BiblesResponse> => {
     try {
@@ -30,7 +36,7 @@ export const listBiblesFn = createServerFn({ method: "GET" }).handler(
 );
 
 export const getPassageFn = createServerFn({ method: "GET" })
-  .inputValidator((input: { versionId: string; passage: string }) => input)
+  .validator(passageSchema)
   .handler(async ({ data }): Promise<PassageResponse> => {
     if (!isValidVersionId(data.versionId)) {
       return { ok: false, error: normalizeApiError(400, "Invalid translation id.") };

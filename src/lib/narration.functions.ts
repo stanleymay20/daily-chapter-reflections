@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import { z } from "zod";
 
 const DEFAULT_VOICE = "JBFqnCBsd6RMkjVDRZzb";
 const MAX_TEXT = 9_500;
@@ -7,12 +8,16 @@ export type NarrationResponse =
   | { ok: true; audioBase64: string; mimeType: "audio/mpeg"; provider: "elevenlabs" }
   | { ok: false; error: string; unavailable?: boolean };
 
+const narrationSchema = z.object({
+  text: z.string().min(1).max(30_000),
+});
+
 function clean(text: string) {
   return text.replace(/\s+/g, " ").trim().slice(0, MAX_TEXT);
 }
 
 export const generateNarrationFn = createServerFn({ method: "POST" })
-  .inputValidator((input: { text: string }) => input)
+  .validator(narrationSchema)
   .handler(async ({ data }): Promise<NarrationResponse> => {
     const apiKey = process.env["ELEVENLABS_API_KEY"];
     if (!apiKey) {
@@ -20,6 +25,10 @@ export const generateNarrationFn = createServerFn({ method: "POST" })
     }
     const text = clean(data.text);
     if (!text) return { ok: false, error: "There is no chapter text to narrate." };
+
+    const { authorizeCurrentAiRequest } = await import("./ai-access.server");
+    const access = await authorizeCurrentAiRequest("narration");
+    if (!access.ok) return { ok: false, error: access.error };
 
     const voiceId = process.env["ELEVENLABS_VOICE_ID"] || DEFAULT_VOICE;
     const controller = new AbortController();

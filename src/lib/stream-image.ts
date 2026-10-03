@@ -20,9 +20,17 @@ export async function streamImage(
   signal?: AbortSignal,
   headers?: HeadersInit,
 ): Promise<void> {
+  const baseHeaders = new Headers(headers);
+  if (!baseHeaders.has("Authorization")) {
+    const { supabase } = await import("@/integrations/supabase/client");
+    const { data } = await supabase.auth.getSession();
+    const token = data.session?.access_token;
+    if (token) baseHeaders.set("Authorization", `Bearer ${token}`);
+  }
+
   const send = (stream: boolean) => {
     signal?.throwIfAborted();
-    const requestHeaders = new Headers(headers);
+    const requestHeaders = new Headers(baseHeaders);
     let body: FormData | string;
     if (input instanceof FormData) {
       const form = new FormData();

@@ -23,6 +23,13 @@ export const Route = createFileRoute("/api/generate-study-image")({
         const apiKey = process.env["LOVABLE_API_KEY"];
         if (!apiKey) return Response.json({ message: "AI study tools are not configured on this deployment." }, { status: 500 });
 
+        const { authorizeAiRequest } = await import("@/lib/ai-access.server");
+        const access = await authorizeAiRequest(request, "image");
+        if (!access.ok) {
+          const headers = access.retryAfter ? { "Retry-After": String(access.retryAfter) } : undefined;
+          return Response.json({ message: access.error }, { status: access.status, headers });
+        }
+
         const prompt = `Create one calm, historically respectful editorial illustration for a private Bible study guide about ${input.reference}.
 
 Chapter guide summary: ${input.summary}

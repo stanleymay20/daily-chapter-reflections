@@ -1,4 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
+import { z } from "zod";
+
 import { isValidPassageId, isValidVersionId } from "./youversion";
 
 export type StudyInsights = {
@@ -27,6 +29,15 @@ export type AskChapterAnswer = {
 
 type Result = { ok: true; insights: StudyInsights } | { ok: false; error: string };
 type AskResult = { ok: true; answer: AskChapterAnswer } | { ok: false; error: string };
+
+const chapterInputSchema = z.object({
+  versionId: z.string().trim().min(1).max(20),
+  passage: z.string().trim().min(1).max(20),
+});
+
+const askInputSchema = chapterInputSchema.extend({
+  question: z.string().trim().min(1).max(1200),
+});
 
 function empty(): StudyInsights {
   return { summary:"", themes:[], context:"", peoplePlaces:[], crossReferences:[], reflectionQuestions:[], applications:[], prayerPrompts:[], deeperStudy:[], eventSequence:[], visualTimeline:[], relationships:[], placeNotes:[] };
@@ -67,9 +78,13 @@ async function gateway(prompt:string,system:string){
 }
 
 export const generateInsightsFn = createServerFn({ method: "POST" })
-  .inputValidator((input: { versionId: string; passage: string }) => input)
+  .validator(chapterInputSchema)
   .handler(async ({ data }): Promise<Result> => {
     if (!isValidVersionId(data.versionId) || !isValidPassageId(data.passage)) return { ok:false, error:"Invalid passage or translation." };
+    if (!process.env["LOVABLE_API_KEY"]) return { ok:false, error:"AI study tools are not configured on this deployment." };
+    const { authorizeCurrentAiRequest } = await import("./ai-access.server");
+    const access = await authorizeCurrentAiRequest("insights");
+    if (!access.ok) return { ok:false, error:access.error };
     try {
       const {chapter,source}=await chapterSource(data.versionId,data.passage);
       const prompt=`Create careful Bible study assistance grounded primarily in the supplied chapter. Never present your words as Scripture and never invent a Bible quotation. Clearly qualify historical/cultural claims. If a cross-reference is uncertain, omit it. Use verse references when discussing the supplied text. For visual study aids, eventSequence must follow only events explicitly present in this chapter. visualTimeline may describe the chapter's internal sequence only unless chronology is explicitly stated. relationships must describe relationships actually evident in the chapter. placeNotes must avoid invented coordinates, distances, archaeology, or geography; if the chapter itself gives insufficient information, keep the item minimal or omit it.\n\nChapter: ${chapter.reference}\n\nSOURCE TEXT:\n${source}\n\nReturn ONLY valid JSON with keys: summary (string), themes (string[]), context (string), peoplePlaces (string[]), crossReferences (string[] references plus one-sentence relevance), reflectionQuestions (string[]), applications (string[]), prayerPrompts (string[]), deeperStudy (string[]), eventSequence (string[] in chapter order), visualTimeline (string[] concise sequence labels), relationships (string[]), placeNotes (string[]).`;
@@ -81,12 +96,16 @@ export const generateInsightsFn = createServerFn({ method: "POST" })
   });
 
 export const askChapterFn = createServerFn({method:"POST"})
-  .inputValidator((input:{versionId:string;passage:string;question:string})=>input)
+  .validator(askInputSchema)
   .handler(async({data}):Promise<AskResult>=>{
-    if(!isValidVersionId(data.versionId)||!isValidPassageId(data.passage)||!data.question.trim()||data.question.length>1200)return {ok:false,error:"Invalid question, passage, or translation."};
+    if(!isValidVersionId(data.versionId)||!isValidPassageId(data.passage))return {ok:false,error:"Invalid question, passage, or translation."};
+    if (!process.env["LOVABLE_API_KEY"]) return { ok:false, error:"AI study tools are not configured on this deployment." };
+    const { authorizeCurrentAiRequest } = await import("./ai-access.server");
+    const access = await authorizeCurrentAiRequest("ask_chapter");
+    if (!access.ok) return { ok:false, error:access.error };
     try{
       const {chapter,source}=await chapterSource(data.versionId,data.passage);
-      const prompt=`Answer the user's study question about ${chapter.reference}. Begin from the supplied chapter. Do not fabricate Bible quotations or claim certainty where the text is silent. Separate explicit statements from inference. Related references may be suggested by reference only; do not quote them because their text was not supplied.\n\nQUESTION:\n${data.question.trim()}\n\nSOURCE CHAPTER:\n${source}\n\nReturn ONLY valid JSON: {"answer":"concise explanation","explicitFromText":["claims tied to verse references"],"inferences":["clearly labelled reasonable inferences"],"uncertainties":["things the chapter does not establish"],"relatedReferences":["reference only"]}.`;
+      const prompt=`Answer the user's study question about ${chapter.reference}. Begin from the supplied chapter. Do not fabricate Bible quotations or claim certainty where the text is silent. Separate explicit statements from inference. Related references may be suggested by reference only; do not quote them because their text was not supplied.\n\nQUESTION:\n${data.question}\n\nSOURCE CHAPTER:\n${source}\n\nReturn ONLY valid JSON: {"answer":"concise explanation","explicitFromText":["claims tied to verse references"],"inferences":["clearly labelled reasonable inferences"],"uncertainties":["things the chapter does not establish"],"relatedReferences":["reference only"]}.`;
       const content=await gateway(prompt,"You are a transparent Bible-study assistant. Never blur Scripture, commentary, inference, tradition, or uncertainty.");
       const answer=parseJson<AskChapterAnswer>(content);
       return answer?{ok:true,answer}:{ok:false,error:"AI response could not be parsed. Please try again."};
