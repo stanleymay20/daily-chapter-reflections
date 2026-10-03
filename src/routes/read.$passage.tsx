@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { Bookmark, BookOpenCheck, Check, ChevronLeft, ChevronRight, CircleHelp, Headphones, Heart, Lightbulb, MapPin, NotebookPen, Pause, Play, Route as RouteIcon, Share2, Sparkles, UsersRound, Volume2, Workflow } from "lucide-react";
+import { Bookmark, BookOpenCheck, Check, ChevronLeft, ChevronRight, CircleHelp, Headphones, Heart, Image as ImageIcon, Lightbulb, Loader2, MapPin, NotebookPen, Pause, Play, Route as RouteIcon, Share2, Sparkles, UsersRound, Volume2, Workflow } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { ApiStateNotice } from "@/components/ApiStateNotice";
@@ -17,6 +17,7 @@ import { askChapterFn, generateInsightsFn, type AskChapterAnswer, type StudyInsi
 import { berlinToday, chapterLabel, findChapterByPassageId, getPlanForDate, passageId } from "@/lib/schedule";
 import { chooseDefaultVoice, getEnglishVoices, loadSpeechVoice, normalizeSpeechText, saveSpeechVoice } from "@/lib/speech";
 import { loadChapterStudy, saveChapterStudy, type ChapterStudy } from "@/lib/study-state";
+import { streamImage } from "@/lib/stream-image";
 import { encodeApiError, isValidPassageId } from "@/lib/youversion";
 import { getPassageFn, listBiblesFn } from "@/lib/youversion.functions";
 
@@ -24,6 +25,7 @@ type ReaderSearch={date?:string};
 const DATE_RE=/^\d{4}-\d{2}-\d{2}$/;
 export const Route = createFileRoute("/read/$passage")({
   validateSearch:(search:Record<string,unknown>):ReaderSearch=>typeof search["date"]==="string"&&DATE_RE.test(search["date"] as string)?{date:search["date"] as string}:{},
+  head:({params})=>({meta:[{title:`${params.passage} Reader | 7-Chapter Bible Study`},{name:"description",content:"Read a Bible chapter from YouVersion and keep private study notes."},{property:"og:title",content:`${params.passage} Reader | 7-Chapter Bible Study`},{property:"og:description",content:"Read a Bible chapter from YouVersion and keep private study notes."},{property:"og:type",content:"website"},{name:"twitter:card",content:"summary"}]}),
   component: Reader,
 });
 
@@ -55,6 +57,10 @@ function Reader(){
   const [insights,setInsights]=useState<StudyInsights|null>(null);
   const [insightsError,setInsightsError]=useState("");
   const [generating,setGenerating]=useState(false);
+  const [visualImage,setVisualImage]=useState("");
+  const [visualImageFinal,setVisualImageFinal]=useState(false);
+  const [visualImageError,setVisualImageError]=useState("");
+  const [visualGenerating,setVisualGenerating]=useState(false);
   const [question,setQuestion]=useState("");
   const [answer,setAnswer]=useState<AskChapterAnswer|null>(null);
   const [asking,setAsking]=useState(false);
@@ -67,7 +73,7 @@ function Reader(){
   const settings=useMemo(()=>loadSettings(),[]);
   const visibleStages=useMemo(()=>settings.studyMode==="read"?stages.filter(s=>s.id==="read"||s.id==="pray"):settings.studyMode==="quick"?stages.filter(s=>s.id==="read"||s.id==="reflect"||s.id==="pray"):stages,[settings.studyMode]);
 
-  useEffect(()=>{setSaved(loadSavedVerses());setStudy(loadChapterStudy(passage));setStatus(passage,statusOf(passage)==="complete"?"complete":"reading");setStage("read")},[passage,studyDate]);
+  useEffect(()=>{setSaved(loadSavedVerses());setStudy(loadChapterStudy(passage));setStatus(passage,statusOf(passage)==="complete"?"complete":"reading");setStage("read");setInsights(null);setVisualImage("");setVisualImageFinal(false);setVisualImageError("")},[passage,studyDate]);
   useEffect(()=>()=>{cancelSpeech.current=true;if(typeof window!=="undefined")window.speechSynthesis?.cancel()},[]);
   useEffect(()=>{
     if(typeof window==="undefined"||!window.speechSynthesis)return;
@@ -154,6 +160,14 @@ function Reader(){
     window.speechSynthesis.speak(utterance);
   };
   const doInsights=async()=>{if(!active)return;setGenerating(true);setInsightsError("");const res=await generateInsights({data:{versionId:active.id,passage}});setGenerating(false);if(res.ok)setInsights(res.insights);else setInsightsError(res.error);};
+  const createVisual=async()=>{
+    if(!insights||visualGenerating)return;
+    setVisualGenerating(true);setVisualImage("");setVisualImageError("");setVisualImageFinal(false);
+    try{
+      await streamImage("/api/generate-study-image",{reference:passageQuery.data?.reference||label,summary:insights.summary,events:insights.eventSequence},(dataUrl,isFinal)=>{setVisualImage(dataUrl);setVisualImageFinal(isFinal)});
+    }catch(error){setVisualImageError(error instanceof Error?error.message:"The illustration could not be created.");}
+    finally{setVisualGenerating(false);}
+  };
   const doAsk=async()=>{if(!active||!question.trim())return;setAsking(true);setAnswer(null);const res=await askChapter({data:{versionId:active.id,passage,question:question.trim()}});setAsking(false);if(res.ok)setAnswer(res.answer);else setInsightsError(res.error);};
   const complete=()=>{setStatus(passage,"complete");updateStudy({completedAt:new Date().toISOString()});};
 
@@ -185,7 +199,7 @@ function Reader(){
       <Card className="mt-4 p-4"><div className="flex items-center gap-2"><CircleHelp className="size-4 text-primary"/><h3 className="text-sm font-semibold">Ask about this chapter</h3></div><p className="mt-1 text-xs text-muted-foreground">Answers separate what the chapter explicitly states from inference and uncertainty.</p><Textarea className="mt-3 min-h-20" value={question} onChange={e=>setQuestion(e.target.value)} placeholder={`Why does this happen in ${label}?`}/><Button className="mt-2" size="sm" onClick={doAsk} disabled={asking||!question.trim()}>{asking?"Thinking…":"Ask"}</Button>{answer?<div className="mt-4 space-y-3 text-sm"><p className="leading-relaxed">{answer.answer}</p><AnswerList title="Explicit from this chapter" items={answer.explicitFromText}/><AnswerList title="Reasonable inference" items={answer.inferences}/><AnswerList title="Uncertain / not established here" items={answer.uncertainties}/><AnswerList title="References to examine next" items={answer.relatedReferences}/></div>:null}</Card>
       <div className="mt-5 flex justify-end"><Button onClick={()=>setStage("explore")}>Explore visually<ChevronRight className="ml-1 size-4"/></Button></div></section>:null}
 
-    {stage==="explore"?<section className="mt-6"><div><h2 className="font-[family-name:var(--font-scripture)] text-3xl font-semibold">Explore</h2><p className="mt-1 text-xs text-muted-foreground">Structured visual aids are generated from the chapter for orientation—not Scripture and not a substitute for reading it.</p></div>{!insights?<Card className="mt-4 p-5"><p className="text-sm text-muted-foreground">Build the chapter guide in Understand first. The Explore view will turn grounded chapter details into an event sequence, relationship board and place notes.</p><Button className="mt-3" size="sm" onClick={()=>setStage("understand")}>Go to Understand</Button></Card>:<div className="mt-5 space-y-4"><VisualSequence title="Chapter event sequence" icon={RouteIcon} items={insights.eventSequence}/><VisualSequence title="Timeline / flow" icon={Workflow} items={insights.visualTimeline}/><ExploreList title="Relationships" icon={UsersRound} items={insights.relationships}/><ExploreList title="Places mentioned" icon={MapPin} items={insights.placeNotes}/><p className="rounded-xl border border-dashed p-3 text-[11px] leading-relaxed text-muted-foreground">No invented map coordinates, distances or archaeological claims are added here. Where the supplied chapter does not establish a fact, the visual guide should omit it.</p></div>}<div className="mt-5 flex justify-end"><Button onClick={()=>setStage("reflect")}>Reflect<ChevronRight className="ml-1 size-4"/></Button></div></section>:null}
+    {stage==="explore"?<section className="mt-6"><div><h2 className="font-[family-name:var(--font-scripture)] text-3xl font-semibold">Explore</h2><p className="mt-1 text-xs text-muted-foreground">Visual study aids are interpretive guidance—not Scripture and not a substitute for reading it.</p></div>{!insights?<Card className="mt-4 p-5"><p className="text-sm text-muted-foreground">Build the chapter guide in Understand first. The Explore view will create an illustration and organize grounded chapter details.</p><Button className="mt-3" size="sm" onClick={()=>setStage("understand")}>Go to Understand</Button></Card>:<div className="mt-5 space-y-4"><Card className="overflow-hidden"><div className="flex items-center justify-between gap-3 p-4"><div className="flex items-center gap-2"><ImageIcon className="size-4 text-primary"/><div><h3 className="text-sm font-semibold">Chapter illustration</h3><p className="text-[11px] text-muted-foreground">AI-created interpretation · not Scripture</p></div></div><Button size="sm" onClick={createVisual} disabled={visualGenerating}>{visualGenerating?<><Loader2 className="mr-1 size-4 animate-spin"/>Creating…</>:visualImage?"Create again":"Create image"}</Button></div>{visualImage?<div className="border-t bg-muted/40"><img src={visualImage} alt={`Interpretive study illustration for ${label}`} className={`aspect-[3/2] w-full object-cover transition-[filter] duration-700 ${visualImageFinal?"blur-0":"blur-2xl"}`}/>{visualImageFinal?<p className="border-t px-4 py-3 text-[11px] leading-relaxed text-muted-foreground">This artwork is an AI interpretation based on the chapter guide. Details may be imagined; return to the Scripture text for what the chapter actually says.</p>:null}</div>:<div className="grid aspect-[3/2] place-items-center border-t bg-muted/40 px-8 text-center"><div><ImageIcon className="mx-auto size-8 text-muted-foreground"/><p className="mt-2 text-sm text-muted-foreground">Create a visual interpretation grounded in this chapter guide.</p></div></div>}{visualImageError?<p className="border-t px-4 py-3 text-xs text-destructive">{visualImageError}</p>:null}</Card><VisualSequence title="Chapter event sequence" icon={RouteIcon} items={insights.eventSequence}/><VisualSequence title="Timeline / flow" icon={Workflow} items={insights.visualTimeline}/><ExploreList title="Relationships" icon={UsersRound} items={insights.relationships}/><ExploreList title="Places mentioned" icon={MapPin} items={insights.placeNotes}/><p className="rounded-xl border border-dashed p-3 text-[11px] leading-relaxed text-muted-foreground">No invented map coordinates, distances or archaeological claims are added here. Where the supplied chapter does not establish a fact, the visual guide should omit it.</p></div>}<div className="mt-5 flex justify-end"><Button onClick={()=>setStage("reflect")}>Reflect<ChevronRight className="ml-1 size-4"/></Button></div></section>:null}
 
     {stage==="reflect"?<section className="mt-6"><h2 className="font-[family-name:var(--font-scripture)] text-3xl font-semibold">Reflect</h2><p className="mt-1 text-sm text-muted-foreground">Think before asking for more information. These answers become part of your study memory.</p><div className="mt-5 space-y-4"><ReflectionField label="Observe" prompt="What does the chapter actually say or emphasize?" value={study.reflections.observation??""} onChange={v=>updateStudy({reflections:{observation:v}})}/><ReflectionField label="Understand" prompt="What seems to be happening, and what evidence in the chapter supports that?" value={study.reflections.understanding??""} onChange={v=>updateStudy({reflections:{understanding:v}})}/><ReflectionField label="Reflect" prompt="What challenged, encouraged, surprised, or convicted you?" value={study.reflections.reflection??""} onChange={v=>updateStudy({reflections:{reflection:v}})}/><ReflectionField label="Apply" prompt="What is one concrete response you can make today?" value={study.reflections.application??""} onChange={v=>updateStudy({reflections:{application:v}})}/></div>{insights?.reflectionQuestions?.length?<StudyCard title="Optional study-guide questions" items={insights.reflectionQuestions}/>:null}<div className="mt-5 flex justify-end"><Button onClick={()=>setStage("pray")}>Pray from what you read<ChevronRight className="ml-1 size-4"/></Button></div></section>:null}
 

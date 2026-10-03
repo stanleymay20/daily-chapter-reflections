@@ -8,3 +8,5 @@
 > Commits you push to the connected branch sync back to Lovable and show up in
 > the editor, so keep the branch in a working state.
 <!-- LOVABLE:END -->
+
+- Generate chapter artwork through the server image route and keep it explicitly labeled as interpretive, because Scripture must remain the authoritative primary content.

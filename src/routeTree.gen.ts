@@ -16,6 +16,7 @@ import { Route as PlansRouteImport } from './routes/plans'
 import { Route as ProgressRouteImport } from './routes/progress'
 import { Route as SavedRouteImport } from './routes/saved'
 import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as ApiGenerateStudyImageRouteImport } from './routes/api/generate-study-image'
 import { Route as ReadPassageRouteImport } from './routes/read.$passage'
 
 const IndexRoute = IndexRouteImport.update({
@@ -53,6 +54,11 @@ const SettingsRoute = SettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiGenerateStudyImageRoute = ApiGenerateStudyImageRouteImport.update({
+  id: '/api/generate-study-image',
+  path: '/api/generate-study-image',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ReadPassageRoute = ReadPassageRouteImport.update({
   id: '/read/$passage',
   path: '/read/$passage',
@@ -67,6 +73,7 @@ export interface FileRoutesByFullPath {
   '/progress': typeof ProgressRoute
   '/saved': typeof SavedRoute
   '/settings': typeof SettingsRoute
+  '/api/generate-study-image': typeof ApiGenerateStudyImageRoute
   '/read/$passage': typeof ReadPassageRoute
 }
 export interface FileRoutesByTo {
@@ -77,6 +84,7 @@ export interface FileRoutesByTo {
   '/progress': typeof ProgressRoute
   '/saved': typeof SavedRoute
   '/settings': typeof SettingsRoute
+  '/api/generate-study-image': typeof ApiGenerateStudyImageRoute
   '/read/$passage': typeof ReadPassageRoute
 }
 export interface FileRoutesById {
@@ -88,6 +96,7 @@ export interface FileRoutesById {
   '/progress': typeof ProgressRoute
   '/saved': typeof SavedRoute
   '/settings': typeof SettingsRoute
+  '/api/generate-study-image': typeof ApiGenerateStudyImageRoute
   '/read/$passage': typeof ReadPassageRoute
 }
 export interface FileRouteTypes {
@@ -100,6 +109,7 @@ export interface FileRouteTypes {
     | '/progress'
     | '/saved'
     | '/settings'
+    | '/api/generate-study-image'
     | '/read/$passage'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -110,6 +120,7 @@ export interface FileRouteTypes {
     | '/progress'
     | '/saved'
     | '/settings'
+    | '/api/generate-study-image'
     | '/read/$passage'
   id:
     | '__root__'
@@ -120,6 +131,7 @@ export interface FileRouteTypes {
     | '/progress'
     | '/saved'
     | '/settings'
+    | '/api/generate-study-image'
     | '/read/$passage'
   fileRoutesById: FileRoutesById
 }
@@ -131,6 +143,7 @@ export interface RootRouteChildren {
   ProgressRoute: typeof ProgressRoute
   SavedRoute: typeof SavedRoute
   SettingsRoute: typeof SettingsRoute
+  ApiGenerateStudyImageRoute: typeof ApiGenerateStudyImageRoute
   ReadPassageRoute: typeof ReadPassageRoute
 }
 
@@ -185,6 +198,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/generate-study-image': {
+      id: '/api/generate-study-image'
+      path: '/api/generate-study-image'
+      fullPath: '/api/generate-study-image'
+      preLoaderRoute: typeof ApiGenerateStudyImageRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/read/$passage': {
       id: '/read/$passage'
       path: '/read/$passage'
@@ -203,6 +223,7 @@ const rootRouteChildren: RootRouteChildren = {
   ProgressRoute: ProgressRoute,
   SavedRoute: SavedRoute,
   SettingsRoute: SettingsRoute,
+  ApiGenerateStudyImageRoute: ApiGenerateStudyImageRoute,
   ReadPassageRoute: ReadPassageRoute,
 }
 export const routeTree = rootRouteImport
