@@ -1,12 +1,16 @@
 import { getRequest } from "@tanstack/react-start/server";
 
-import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { publicSupabasePublishableKey, publicSupabaseUrl } from "@/integrations/supabase/public-config";
 
 export type AiFeature = "insights" | "ask_chapter" | "study_memory" | "narration" | "image";
 
 type AiAccessResult =
   | { ok: true; userId: string }
   | { ok: false; status: 401 | 429 | 503; error: string; retryAfter?: number };
+
+type AuthResult =
+  | { ok: true; userId: string }
+  | { ok: false; status: 401 | 503; error: string };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
@@ -16,13 +20,46 @@ function positiveInteger(value: unknown): number | undefined {
   return typeof value === "number" && Number.isInteger(value) && value > 0 ? value : undefined;
 }
 
-async function consumeQuota(token: string, userId: string, feature: AiFeature): Promise<AiAccessResult> {
-  const supabaseUrl = process.env["SUPABASE_URL"];
-  const publishableKey = process.env["SUPABASE_PUBLISHABLE_KEY"];
-  if (!supabaseUrl || !publishableKey) {
-    console.error(`[AI access] Supabase quota configuration is missing for ${feature}.`);
+async function authenticateUser(token: string): Promise<AuthResult> {
+  const supabaseUrl = publicSupabaseUrl();
+  const publishableKey = publicSupabasePublishableKey();
+
+  try {
+    // Validate the caller's access token using the least-privileged public Auth
+    // endpoint. A service-role credential is unnecessary for session validation.
+    const response = await fetch(`${supabaseUrl.replace(/\/$/, "")}/auth/v1/user`, {
+      method: "GET",
+      headers: {
+        apikey: publishableKey,
+        Authorization: `Bearer ${token}`,
+        Accept: "application/json",
+      },
+    });
+
+    if (response.status === 401 || response.status === 403) {
+      return { ok: false, status: 401, error: "Your session has expired. Sign in again to use AI study tools." };
+    }
+    if (!response.ok) {
+      const body = await response.text().catch(() => "");
+      console.error(`[AI access] Supabase Auth failed: ${response.status} ${body.slice(0, 300)}`);
+      return { ok: false, status: 503, error: "AI access could not be verified. Please try again." };
+    }
+
+    const payload = (await response.json()) as unknown;
+    const userId = isRecord(payload) && typeof payload["id"] === "string" ? payload["id"] : "";
+    if (!userId) {
+      return { ok: false, status: 401, error: "Your session has expired. Sign in again to use AI study tools." };
+    }
+    return { ok: true, userId };
+  } catch (error) {
+    console.error("[AI access] Supabase Auth request failed:", error);
     return { ok: false, status: 503, error: "AI access could not be verified. Please try again." };
   }
+}
+
+async function consumeQuota(token: string, userId: string, feature: AiFeature): Promise<AiAccessResult> {
+  const supabaseUrl = publicSupabaseUrl();
+  const publishableKey = publicSupabasePublishableKey();
 
   try {
     const response = await fetch(`${supabaseUrl.replace(/\/$/, "")}/rest/v1/rpc/consume_ai_quota`, {
@@ -74,19 +111,11 @@ export async function authorizeAiRequest(request: Request, feature: AiFeature): 
   const token = authHeader.slice("Bearer ".length).trim();
   if (!token) return { ok: false, status: 401, error: "Sign in in Settings to use AI study tools." };
 
-  try {
-    // Never trust a caller-supplied user id. Supabase validates the access token
-    // and returns the authoritative user. The quota RPC independently derives
-    // the same identity from auth.uid().
-    const { data, error } = await supabaseAdmin.auth.getUser(token);
-    if (error || !data.user?.id) {
-      return { ok: false, status: 401, error: "Your session has expired. Sign in again to use AI study tools." };
-    }
-    return consumeQuota(token, data.user.id, feature);
-  } catch (error) {
-    console.error(`[AI access] Authentication failed for ${feature}:`, error);
-    return { ok: false, status: 503, error: "AI access could not be verified. Please try again." };
-  }
+  // Never trust a caller-supplied user id. Supabase Auth validates the bearer
+  // token and the quota RPC independently derives the same identity via auth.uid().
+  const auth = await authenticateUser(token);
+  if (!auth.ok) return auth;
+  return consumeQuota(token, auth.userId, feature);
 }
 
 export async function authorizeCurrentAiRequest(feature: AiFeature): Promise<AiAccessResult> {
