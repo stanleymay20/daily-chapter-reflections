@@ -162,7 +162,7 @@ function Reader(){
   const doInsights=async()=>{if(!active)return;setGenerating(true);setInsightsError("");const res=await generateInsights({data:{versionId:active.id,passage}});setGenerating(false);if(res.ok)setInsights(res.insights);else setInsightsError(res.error);};
   const createVisual=async()=>{
     if(!insights||visualGenerating)return;
-    setVisualGenerating(true);setVisualImageError("");setVisualImageFinal(false);
+    setVisualGenerating(true);setVisualImage("");setVisualImageError("");setVisualImageFinal(false);
     try{
       await streamImage("/api/generate-study-image",{reference:passageQuery.data?.reference||label,summary:insights.summary,events:insights.eventSequence},(dataUrl,isFinal)=>{setVisualImage(dataUrl);setVisualImageFinal(isFinal)});
     }catch(error){setVisualImageError(error instanceof Error?error.message:"The illustration could not be created.");}
