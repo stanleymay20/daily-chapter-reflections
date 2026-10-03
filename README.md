@@ -30,7 +30,7 @@ A translation is selected only from versions actually returned for the configure
 
 ## AI security model
 
-Cost-bearing AI operations require an authenticated Supabase session. Server code validates the bearer access token with Supabase and never trusts a caller-supplied user ID.
+Cost-bearing AI operations require an authenticated Supabase session. The server validates the caller's bearer token through Supabase Auth using the public publishable key; it does not require the service-role credential for ordinary session validation and never trusts a caller-supplied user ID.
 
 AI usage limits are enforced by the database through `public.consume_ai_quota(text)`. The committed quota migration is:
 
@@ -53,13 +53,19 @@ When changing database schema or policies:
 3. verify grants and policies against the live database;
 4. test cross-user isolation before release.
 
-Do not use the service-role client for normal user-scoped browser operations. The service role is server-only and bypasses RLS.
+Do not use the service-role client for normal user-scoped browser operations. The service role is server-only, bypasses RLS, and should be configured only when a trusted privileged server operation actually needs it.
 
-## Environment variables
+## Environment and public configuration
 
-Copy `.env.example` for the expected variable names. Never commit a real `.env` or provider secret.
+Never commit a real `.env` or provider secret. `.env.example` documents supported overrides and secrets.
 
-Client-visible Supabase configuration:
+The connected app's Supabase project URL, project ID, and publishable key are **public browser configuration**, not credentials. Daily Scripture Companion keeps a deployment-safe fallback for those three values in:
+
+```text
+src/integrations/supabase/public-config.ts
+```
+
+This prevents Lovable builds from depending on a tracked `.env` file. A fork or deployment that targets a different Supabase project can override the public defaults with:
 
 ```text
 VITE_SUPABASE_URL
@@ -67,13 +73,9 @@ VITE_SUPABASE_PUBLISHABLE_KEY
 VITE_SUPABASE_PROJECT_ID
 ```
 
-Server-side configuration/secrets:
+Server-only provider secrets remain deployment secrets:
 
 ```text
-SUPABASE_URL
-SUPABASE_PUBLISHABLE_KEY
-SUPABASE_PROJECT_ID
-SUPABASE_SERVICE_ROLE_KEY
 YVP_APP_KEY
 LOVABLE_API_KEY
 ELEVENLABS_API_KEY          # optional neural narration
@@ -81,7 +83,14 @@ ELEVENLABS_VOICE_ID         # optional
 ELEVENLABS_MODEL_ID         # optional
 ```
 
-`SUPABASE_SERVICE_ROLE_KEY`, `YVP_APP_KEY`, `LOVABLE_API_KEY`, and `ELEVENLABS_API_KEY` are server secrets and must never be placed in `VITE_*` variables, browser code, logs, or committed files.
+For a deliberately privileged server operation using `src/integrations/supabase/client.server.ts`, configure these only in the server environment:
+
+```text
+SUPABASE_URL
+SUPABASE_SERVICE_ROLE_KEY
+```
+
+`SUPABASE_SERVICE_ROLE_KEY`, `YVP_APP_KEY`, `LOVABLE_API_KEY`, and `ELEVENLABS_API_KEY` are secrets and must never be placed in `VITE_*` variables, browser code, logs, or committed files.
 
 ## Local development
 
