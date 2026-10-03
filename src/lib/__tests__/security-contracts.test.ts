@@ -12,13 +12,17 @@ const memory = source("../study-memory.functions.ts");
 const narration = source("../narration.functions.ts");
 const imageRoute = source("../../routes/api/generate-study-image.ts");
 const imageClient = source("../stream-image.ts");
+const publicConfig = source("../../integrations/supabase/public-config.ts");
+const integrationClient = source("../../integrations/supabase/client.ts");
 const quotaMigration = source("../../../supabase/migrations/20261003093500_ai_usage_quota.sql");
 
 describe("paid AI authorization boundary", () => {
-  it("derives identity from a verified Supabase bearer token", () => {
+  it("derives identity from a Supabase-validated bearer token without service-role access", () => {
     expect(aiAccess).toContain('authHeader?.startsWith("Bearer ")');
-    expect(aiAccess).toContain("supabaseAdmin.auth.getUser(token)");
-    expect(aiAccess).not.toMatch(/userId\s*:\s*data\./);
+    expect(aiAccess).toContain('/auth/v1/user');
+    expect(aiAccess).toContain('Authorization: `Bearer ${token}`');
+    expect(aiAccess).not.toContain("supabaseAdmin");
+    expect(aiAccess).not.toContain("SUPABASE_SERVICE_ROLE_KEY");
   });
 
   it("fails closed when authentication or quota infrastructure cannot be verified", () => {
@@ -38,6 +42,24 @@ describe("paid AI authorization boundary", () => {
   it("attaches the signed-in session to raw image requests", () => {
     expect(imageClient).toContain("supabase.auth.getSession()");
     expect(imageClient).toContain('baseHeaders.set("Authorization", `Bearer ${token}`)');
+  });
+});
+
+describe("deployment-safe public Supabase configuration", () => {
+  it("checks in only public browser configuration as an explicit fallback", () => {
+    expect(publicConfig).toContain('DEFAULT_SUPABASE_PROJECT_ID = "xjvtpiyyfabuxgtdvynu"');
+    expect(publicConfig).toContain('DEFAULT_SUPABASE_URL = "https://xjvtpiyyfabuxgtdvynu.supabase.co"');
+    expect(publicConfig).toMatch(/DEFAULT_SUPABASE_PUBLISHABLE_KEY = "sb_publishable_[^"]+"/);
+    expect(publicConfig).not.toContain("service_role");
+    expect(publicConfig).not.toContain("SUPABASE_SERVICE_ROLE_KEY");
+  });
+
+  it("keeps Vite environment overrides while preventing missing-env startup failure", () => {
+    expect(publicConfig).toContain('import.meta.env["VITE_SUPABASE_URL"] || DEFAULT_SUPABASE_URL');
+    expect(publicConfig).toContain('import.meta.env["VITE_SUPABASE_PUBLISHABLE_KEY"] || DEFAULT_SUPABASE_PUBLISHABLE_KEY');
+    expect(integrationClient).toContain("publicSupabaseUrl()");
+    expect(integrationClient).toContain("publicSupabasePublishableKey()");
+    expect(integrationClient).not.toContain("Missing Supabase environment variable");
   });
 });
 
