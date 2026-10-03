@@ -38,6 +38,8 @@ jobs:
             printf '%s\n' "$suspicious"
             exit 1
           fi
+      # The repository predates the current Prettier baseline and still has
+      # formatting debt. Keep it visible without weakening functional gates.
       - name: Lint (advisory legacy baseline)
         continue-on-error: true
         run: bun run lint
