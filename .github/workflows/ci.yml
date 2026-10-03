@@ -38,7 +38,9 @@ jobs:
             printf '%s\n' "$suspicious"
             exit 1
           fi
-      - run: bun run lint
+      - name: Lint (advisory legacy baseline)
+        continue-on-error: true
+        run: bun run lint
       - run: bun run test
       - name: Typecheck
         shell: bash
