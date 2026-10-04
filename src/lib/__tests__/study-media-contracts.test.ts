@@ -44,7 +44,7 @@ describe("durable study-image contract", () => {
 
   it("cancels the browser request and forwards cancellation to the upstream image provider", () => {
     expect(imageHook).toContain("new AbortController()");
-    expect(imageHook).toContain("controller.abort()");
+    expect(imageHook).toContain("abortRef.current.abort()");
     expect(imageRoute).toContain("request.signal");
     expect(imageRoute).toContain('aborted ? "cancelled" : "failed"');
   });
