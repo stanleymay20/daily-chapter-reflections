@@ -59,8 +59,8 @@ function Home(){
     </header>
 
     <section className="mt-6">
-      <div className="flex items-end justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Seven-track plan</p><h2 className="mt-1 font-[family-name:var(--font-scripture)] text-2xl font-semibold">Today's Scripture</h2></div>{biblesQuery.isLoading?<Skeleton className="h-9 w-28"/>:bibles.length>0?<TranslationPicker bibles={bibles} {...(active?{value:active.id}:{})} onChange={select}/>:null}</div>
-      <p className="mt-1 text-[11px] text-muted-foreground">Bible text is retrieved from YouVersion Platform. Study guidance is always shown separately.</p>
+      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-3"><div className="min-w-0"><h2 className="font-[family-name:var(--font-scripture)] text-2xl font-semibold">Today's chapters</h2></div>{biblesQuery.isLoading?<Skeleton className="h-9 w-28"/>:bibles.length>0?<TranslationPicker bibles={bibles} {...(active?{value:active.id}:{})} onChange={select}/>:null}</div>
+      <p className="mt-1 text-xs text-muted-foreground">Source: YouVersion Platform. Study guidance is always shown separately.</p>
 
       {biblesQuery.isError?<div className="mt-4"><ApiStateNotice error={biblesQuery.error} onRetry={()=>biblesQuery.refetch()}/></div>:!biblesQuery.isLoading&&bibles.length===0?<div className="mt-4"><ApiStateNotice error={new Error(encodeApiError(normalizeApiError(403)))} onRetry={()=>biblesQuery.refetch()}/></div>:null}
 
