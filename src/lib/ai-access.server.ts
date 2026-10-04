@@ -3,7 +3,7 @@ import { getRequest } from "@tanstack/react-start/server";
 import { AI_MESSAGES } from "@/lib/ai-error";
 import { publicSupabasePublishableKey, publicSupabaseUrl } from "@/integrations/supabase/public-config";
 
-export type AiFeature = "insights" | "ask_chapter" | "study_memory" | "narration" | "image";
+export type AiFeature = "insights" | "ask_chapter" | "study_memory" | "narration" | "image" | "video";
 
 type AiAccessResult =
   | { ok: true; userId: string }
