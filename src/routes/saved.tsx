@@ -56,5 +56,5 @@ function JournalPage(){
   </main>;
 }
 function JournalLine({label,text}:{label:string;text:string}){return <div className="mt-3"><p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</p><p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed">{text}</p></div>}
-function Empty({text}:{text:string}){return <Card className="p-8 text-center text-sm text-muted-foreground">{text}</Card>}
+function Empty({text}:{text:string}){return <Card className="flex flex-col items-center gap-3 p-8 text-center"><BookOpen className="size-6 text-primary" aria-hidden="true"/><p className="max-w-xs text-sm text-muted-foreground">{text}</p><Link to="/" className="inline-flex min-h-11 items-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground">Go to today's reading</Link></Card>}
 function MemoryList({title,items}:{title:string;items:string[]}){if(!items?.length)return null;return <Card className="p-4"><h3 className="text-sm font-semibold">{title}</h3><ul className="mt-2 space-y-2 text-sm text-muted-foreground">{items.map((x,i)=><li key={i}>• {x}</li>)}</ul></Card>}
