@@ -24,7 +24,7 @@ export const MagicLinkEmail = ({ siteName, token }: MagicLinkEmailProps) => (
     <Body style={main}>
       <Container style={container}>
         <Heading style={h1}>Your sign-in code</Heading>
-        <Text style={text}>Enter this code in {siteName} to sign in. It expires shortly.</Text>
+        <Text style={text}>Enter the full code below in {siteName} to sign in. It expires shortly, and only the newest code works.</Text>
         <Text style={code}>{token}</Text>
         <Text style={footer}>If you didn't request this code, you can safely ignore this email.</Text>
       </Container>
@@ -48,7 +48,7 @@ const text = {
   lineHeight: '1.5',
   margin: '0 0 25px',
 }
-const code = { fontSize: '32px', fontWeight: 'bold' as const, letterSpacing: '8px', color: '#000000', fontFamily: 'monospace', margin: '0 0 25px' }
+const code = { fontSize: '28px', fontWeight: 'bold' as const, letterSpacing: '4px', color: '#000000', fontFamily: 'monospace', margin: '0 0 25px', padding: '14px 8px', backgroundColor: '#f5efe3', borderRadius: '10px', textAlign: 'center' as const, wordBreak: 'keep-all' as const, whiteSpace: 'nowrap' as const }
 const button = {
   backgroundColor: '#000000',
   color: '#ffffff',

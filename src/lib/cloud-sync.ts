@@ -30,10 +30,14 @@ export async function getCloudUser(){const {data}=await requireSupabase().auth.g
 export const OTP_RESEND_COOLDOWN_SECONDS=60;
 export function normalizeEmail(email:string){return email.trim().toLowerCase()}
 export function isValidEmail(email:string){return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizeEmail(email))}
-export function normalizeOtp(code:string){return code.replace(/\D/g,"").slice(0,6)}
-/** Request a 6-digit email code. No redirect URL: the session is created only by verifyEmailCode in this same app context. */
+/** Length of the email code the auth provider actually sends (observed: 8 digits). Single source of truth for UI, validation and tests. */
+export const OTP_LENGTH=8;
+/** Strip spaces, hyphens and other separators; keep digits as a string so leading zeroes survive. Never shortens below OTP_LENGTH. */
+export function normalizeOtp(code:string){return code.replace(/\D/g,"").slice(0,OTP_LENGTH)}
+export function isCompleteOtp(code:string){return new RegExp(`^\\d{${OTP_LENGTH}}$`).test(code)}
+/** Request an email sign-in code. No redirect URL: the session is created only by verifyEmailCode in this same app context. */
 export async function requestEmailCode(email:string){const clean=normalizeEmail(email);if(!isValidEmail(clean))throw new Error("Enter a valid email address.");const {error}=await requireSupabase().auth.signInWithOtp({email:clean,options:{shouldCreateUser:true}});if(error)throw new Error(otpErrorMessage(error))}
-export async function verifyEmailCode(email:string,code:string){const token=normalizeOtp(code);if(token.length!==6)throw new Error("Enter the 6-digit code from your email.");const {data,error}=await requireSupabase().auth.verifyOtp({email:normalizeEmail(email),token,type:"email"});if(error||!data.session)throw new Error(otpErrorMessage(error));return data.session}
+export async function verifyEmailCode(email:string,code:string){const token=normalizeOtp(code);if(!isCompleteOtp(token))throw new Error(`Enter all ${OTP_LENGTH} digits of the code from your email.`);const {data,error}=await requireSupabase().auth.verifyOtp({email:normalizeEmail(email),token,type:"email"});if(error||!data.session)throw new Error(otpErrorMessage(error));return data.session}
 export function otpErrorMessage(error:{message?:string|null|undefined;status?:number|undefined;code?:string|undefined}|null|undefined){const m=String(error?.message??"").toLowerCase();const c=String(error?.code??"");if(error?.status===429||c.includes("rate_limit")||m.includes("rate limit")||m.includes("security purposes"))return"Too many attempts. Please wait a minute before trying again.";if(c==="otp_expired"||m.includes("expired")||m.includes("invalid"))return"That code is invalid or has expired. Request a new code and try again.";return error?.message||"Sign-in failed. Please try again."}
 export async function signOutCloud(){const {error}=await requireSupabase().auth.signOut();if(error)throw error}
 
