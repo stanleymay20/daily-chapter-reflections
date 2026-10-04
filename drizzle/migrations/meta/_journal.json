@@ -15,6 +15,27 @@
       "when": 1791153017561,
       "tag": "0001_ai_usage_quota",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791153829815,
+      "tag": "0002_guided_study_memory",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1791153906508,
+      "tag": "0003_study_image_persistence",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1791153918871,
+      "tag": "0004_study_memory_media_grants",
+      "breakpoints": true
     }
   ]
 }

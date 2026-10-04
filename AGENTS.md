@@ -11,3 +11,4 @@
 
 - Generate chapter artwork through the server image route and keep it explicitly labeled as interpretive, because Scripture must remain the authoritative primary content.
 - Email sign-in uses the shared in-app OTP_LENGTH-digit (provider-defined, currently 8) code flow (EmailCodeSignIn + verifyOtp type "email"), never magic-link redirects, because installed PWAs lose sessions opened in another browser context.
+- Storage buckets are provisioned through the Storage API tool, never SQL inserts into storage.buckets; migrations only hold storage.objects policies, because the migration tool rejects bucket writes.
