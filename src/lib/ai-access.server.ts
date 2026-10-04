@@ -1,5 +1,6 @@
 import { getRequest } from "@tanstack/react-start/server";
 
+import { AI_MESSAGES } from "@/lib/ai-error";
 import { publicSupabasePublishableKey, publicSupabaseUrl } from "@/integrations/supabase/public-config";
 
 export type AiFeature = "insights" | "ask_chapter" | "study_memory" | "narration" | "image";
@@ -37,23 +38,23 @@ async function authenticateUser(token: string): Promise<AuthResult> {
     });
 
     if (response.status === 401 || response.status === 403) {
-      return { ok: false, status: 401, error: "Your session has expired. Sign in again to use AI study tools." };
+      return { ok: false, status: 401, error: AI_MESSAGES.sessionExpired };
     }
     if (!response.ok) {
       const body = await response.text().catch(() => "");
       console.error(`[AI access] Supabase Auth failed: ${response.status} ${body.slice(0, 300)}`);
-      return { ok: false, status: 503, error: "AI access could not be verified. Please try again." };
+      return { ok: false, status: 503, error: AI_MESSAGES.unavailable };
     }
 
     const payload = (await response.json()) as unknown;
     const userId = isRecord(payload) && typeof payload["id"] === "string" ? payload["id"] : "";
     if (!userId) {
-      return { ok: false, status: 401, error: "Your session has expired. Sign in again to use AI study tools." };
+      return { ok: false, status: 401, error: AI_MESSAGES.sessionExpired };
     }
     return { ok: true, userId };
   } catch (error) {
     console.error("[AI access] Supabase Auth request failed:", error);
-    return { ok: false, status: 503, error: "AI access could not be verified. Please try again." };
+    return { ok: false, status: 503, error: AI_MESSAGES.unavailable };
   }
 }
 
@@ -76,40 +77,41 @@ async function consumeQuota(token: string, userId: string, feature: AiFeature): 
     if (!response.ok) {
       const body = await response.text().catch(() => "");
       console.error(`[AI access] Quota RPC failed for ${feature}: ${response.status} ${body.slice(0, 300)}`);
-      return { ok: false, status: 503, error: "AI access could not be verified. Please try again." };
+      return { ok: false, status: 503, error: AI_MESSAGES.unavailable };
     }
 
     const payload = (await response.json()) as unknown;
     if (!isRecord(payload) || typeof payload["allowed"] !== "boolean") {
       console.error(`[AI access] Quota RPC returned an invalid payload for ${feature}.`);
-      return { ok: false, status: 503, error: "AI access could not be verified. Please try again." };
+      return { ok: false, status: 503, error: AI_MESSAGES.unavailable };
     }
 
     if (payload["allowed"] === true) return { ok: true, userId };
 
+    // DB contract (consume_ai_quota): camelCase `retryAfter` seconds, `scope` "hour"|"day".
     const retryAfter = positiveInteger(payload["retryAfter"]);
     const scope = payload["scope"] === "day" ? "day" : "hour";
     const error =
       scope === "day"
-        ? "You have reached today’s AI study limit. Please continue with Scripture, notes, and reflection for now."
-        : "AI study tools have been used frequently this hour. Please wait a little and try again.";
+        ? AI_MESSAGES.dayLimit
+        : AI_MESSAGES.hourLimit;
 
     return retryAfter
       ? { ok: false, status: 429, error, retryAfter }
       : { ok: false, status: 429, error };
   } catch (error) {
     console.error(`[AI access] Quota check failed for ${feature}:`, error);
-    return { ok: false, status: 503, error: "AI access could not be verified. Please try again." };
+    return { ok: false, status: 503, error: AI_MESSAGES.unavailable };
   }
 }
 
 export async function authorizeAiRequest(request: Request, feature: AiFeature): Promise<AiAccessResult> {
   const authHeader = request.headers.get("authorization");
   if (!authHeader?.startsWith("Bearer ")) {
-    return { ok: false, status: 401, error: "Sign in in Settings to use AI study tools." };
+    return { ok: false, status: 401, error: AI_MESSAGES.signIn };
   }
   const token = authHeader.slice("Bearer ".length).trim();
-  if (!token) return { ok: false, status: 401, error: "Sign in in Settings to use AI study tools." };
+  if (!token) return { ok: false, status: 401, error: AI_MESSAGES.signIn };
 
   // Never trust a caller-supplied user id. Supabase Auth validates the bearer
   // token and the quota RPC independently derives the same identity via auth.uid().
@@ -123,6 +125,6 @@ export async function authorizeCurrentAiRequest(feature: AiFeature): Promise<AiA
     return authorizeAiRequest(getRequest(), feature);
   } catch (error) {
     console.error(`[AI access] No current request for ${feature}:`, error);
-    return { ok: false, status: 503, error: "AI access could not be verified. Please try again." };
+    return { ok: false, status: 503, error: AI_MESSAGES.unavailable };
   }
 }
