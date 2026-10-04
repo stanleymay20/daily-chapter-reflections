@@ -10,4 +10,4 @@
 <!-- LOVABLE:END -->
 
 - Generate chapter artwork through the server image route and keep it explicitly labeled as interpretive, because Scripture must remain the authoritative primary content.
-- Email sign-in uses the shared in-app 6-digit code flow (EmailCodeSignIn + verifyOtp type "email"), never magic-link redirects, because installed PWAs lose sessions opened in another browser context.
+- Email sign-in uses the shared in-app OTP_LENGTH-digit (provider-defined, currently 8) code flow (EmailCodeSignIn + verifyOtp type "email"), never magic-link redirects, because installed PWAs lose sessions opened in another browser context.
