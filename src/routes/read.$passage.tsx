@@ -17,7 +17,7 @@ import { loadSavedVerses, loadSettings, readingWidthClass, safeShareText, upsert
 import { askChapterFn, generateInsightsFn, type AskChapterAnswer, type StudyInsights } from "@/lib/insights.functions";
 import { berlinToday, chapterLabel, findChapterByPassageId, getPlanForDate, passageId } from "@/lib/schedule";
 import { chooseDefaultVoice, getEnglishVoices, loadSpeechVoice, normalizeSpeechText, saveSpeechVoice } from "@/lib/speech";
-import { loadCachedStudyGuide, saveCachedStudyGuide, type StudyImageVersion } from "@/lib/study-media.client";
+import { loadCachedStudyGuide, saveCachedStudyGuide, type StudyImageVersion } from "@/lib/study-media";
 import { loadChapterStudy, saveChapterStudy, type ChapterStudy } from "@/lib/study-state";
 import { encodeApiError, isValidPassageId } from "@/lib/youversion";
 import { getPassageFn, listBiblesFn } from "@/lib/youversion.functions";
