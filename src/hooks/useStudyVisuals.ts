@@ -9,7 +9,7 @@ import {
   reserveStudyImageJob,
   selectStudyImage,
   type StudyImageVersion,
-} from "@/lib/study-media.client";
+} from "@/lib/study-media";
 import { streamImage } from "@/lib/stream-image";
 
 export function useStudyVisuals(args: {
