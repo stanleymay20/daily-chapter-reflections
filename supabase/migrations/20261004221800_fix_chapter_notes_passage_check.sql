@@ -1,0 +1,2 @@
+ALTER TABLE public.chapter_notes DROP CONSTRAINT chapter_notes_passage_check;
+ALTER TABLE public.chapter_notes ADD CONSTRAINT chapter_notes_passage_check CHECK (passage ~ '^[1-3]?[A-Z]{2,3}\.[0-9]{1,3}$');
