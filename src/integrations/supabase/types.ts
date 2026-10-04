@@ -303,6 +303,92 @@ export type Database = {
         }
         Relationships: []
       }
+      study_image_jobs: {
+        Row: {
+          created_at: string
+          guide_hash: string
+          id: string
+          last_error: string | null
+          passage: string
+          prompt_version: string
+          status: string
+          updated_at: string
+          user_id: string
+          version_id: number
+        }
+        Insert: {
+          created_at?: string
+          guide_hash: string
+          id?: string
+          last_error?: string | null
+          passage: string
+          prompt_version: string
+          status?: string
+          updated_at?: string
+          user_id: string
+          version_id: number
+        }
+        Update: {
+          created_at?: string
+          guide_hash?: string
+          id?: string
+          last_error?: string | null
+          passage?: string
+          prompt_version?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+          version_id?: number
+        }
+        Relationships: []
+      }
+      study_images: {
+        Row: {
+          created_at: string
+          guide_hash: string
+          id: string
+          job_id: string
+          passage: string
+          prompt_version: string
+          selected_at: string
+          storage_path: string
+          user_id: string
+          version_id: number
+        }
+        Insert: {
+          created_at?: string
+          guide_hash: string
+          id?: string
+          job_id: string
+          passage: string
+          prompt_version: string
+          selected_at?: string
+          storage_path: string
+          user_id: string
+          version_id: number
+        }
+        Update: {
+          created_at?: string
+          guide_hash?: string
+          id?: string
+          job_id?: string
+          passage?: string
+          prompt_version?: string
+          selected_at?: string
+          storage_path?: string
+          user_id?: string
+          version_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "study_images_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: true
+            referencedRelation: "study_image_jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       study_plans: {
         Row: {
           active_tracks: Json
@@ -408,6 +494,15 @@ export type Database = {
     }
     Functions: {
       consume_ai_quota: { Args: { p_feature: string }; Returns: Json }
+      reserve_study_image_job: {
+        Args: {
+          p_guide_hash: string
+          p_passage: string
+          p_prompt_version: string
+          p_version_id: number
+        }
+        Returns: Json
+      }
     }
     Enums: {
       [_ in never]: never
