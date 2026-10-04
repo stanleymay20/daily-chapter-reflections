@@ -40,7 +40,7 @@ describe("email OTP sign-in", () => {
 
   it("maps invalid/expired codes to a clear message", async () => {
     auth.verifyOtp.mockResolvedValue({ data: { session: null }, error: { code: "otp_expired", message: "Token has expired or is invalid" } });
-    await expect(verifyEmailCode("me@example.com", "000000")).rejects.toThrow(/invalid or has expired/);
+    await expect(verifyEmailCode("me@example.com", "00000000")).rejects.toThrow(/invalid or has expired/);
     expect(otpErrorMessage({ message: "Token is invalid" })).toMatch(/invalid or has expired/);
   });
 
@@ -69,7 +69,7 @@ describe("email OTP sign-in", () => {
     auth.verifyOtp.mockResolvedValue({ data: { session }, error: null });
     await verifyEmailCode("me@example.com", " 0123-4567 ");
     expect(auth.verifyOtp).toHaveBeenCalledWith({ email: "me@example.com", token: "01234567", type: "email" });
-    expect(auth.verifyOtp.mock.calls[0][0].token).toHaveLength(8);
+    expect(auth.verifyOtp.mock.calls[0]?.[0]?.token).toHaveLength(8);
   });
 
   it("can never truncate to six digits again", async () => {
