@@ -27,7 +27,7 @@ export const Route = createFileRoute("/lovable/email/auth/webhook")({
           sendUrl: process.env['LOVABLE_SEND_URL'],
           emails: {
             signup: {
-              // New accounts are created by the in-app code sign-in, so they get the same 6-digit code email.
+              // New accounts are created by the in-app code sign-in, so they get the same sign-in code email.
               subject: 'Your sign-in code',
               render: (data) =>
                 React.createElement(MagicLinkEmail, {
