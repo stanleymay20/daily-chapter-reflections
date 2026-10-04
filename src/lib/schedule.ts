@@ -77,9 +77,18 @@ export function berlinToday(now: Date = new Date()): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Berlin", year:"numeric", month:"2-digit", day:"2-digit" }).format(now);
 }
 
+const WEEKDAYS=["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+const MONTHS=["January","February","March","April","May","June","July","August","September","October","November","December"];
+
+/** Deterministic English formatting: server and browser Intl data can differ, which broke hydration. */
 export function formatBerlinDate(date: string): string {
   const [y,m,d] = date.split("-").map(Number);
-  return new Intl.DateTimeFormat("en-GB", { weekday:"long", day:"numeric", month:"long", year:"numeric", timeZone:"UTC" }).format(new Date(Date.UTC(y!, (m ?? 1)-1, d ?? 1)));
+  const dt = new Date(Date.UTC(y!, (m ?? 1)-1, d ?? 1));
+  return `${WEEKDAYS[dt.getUTCDay()]} ${dt.getUTCDate()} ${MONTHS[dt.getUTCMonth()]} ${dt.getUTCFullYear()}`;
+}
+
+export function formatMonthName(year: number, month0: number): string {
+  return `${MONTHS[month0]} ${year}`;
 }
 
 export function findChapterByPassageId(id: string): { date: string; ref: ChapterRef } | undefined {

@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { DEFAULT_SETTINGS, loadSettings, type AppSettings } from "@/lib/app-state";
-import { berlinToday, chapterLabel, getPlanForDate, passageId } from "@/lib/schedule";
+import { berlinToday, chapterLabel, formatMonthName, getPlanForDate, passageId } from "@/lib/schedule";
 
 export const Route=createFileRoute("/calendar")({component:CalendarPage});
 type Store=Record<string,string>;
@@ -15,7 +15,7 @@ function readProgress():Store{if(typeof window==="undefined")return{};try{return
 function CalendarPage(){
   const today=berlinToday();const [year,setYear]=useState(Number(today.slice(0,4)));const [month,setMonth]=useState(Number(today.slice(5,7))-1);const [selected,setSelected]=useState(today);const [store,setStore]=useState<Store>({});const [settings,setSettings]=useState<AppSettings>(DEFAULT_SETTINGS);
   useEffect(()=>{setStore(readProgress());setSettings(loadSettings())},[]);
-  const first=new Date(Date.UTC(year,month,1));const days=new Date(Date.UTC(year,month+1,0)).getUTCDate();const offset=(first.getUTCDay()+6)%7;const cells=useMemo(()=>Array.from({length:offset+days},(_,i)=>i<offset?null:i-offset+1),[offset,days]);const monthName=new Intl.DateTimeFormat("en-GB",{month:"long",year:"numeric",timeZone:"UTC"}).format(first);
+  const first=new Date(Date.UTC(year,month,1));const days=new Date(Date.UTC(year,month+1,0)).getUTCDate();const offset=(first.getUTCDay()+6)%7;const cells=useMemo(()=>Array.from({length:offset+days},(_,i)=>i<offset?null:i-offset+1),[offset,days]);const monthName=formatMonthName(year,month);
   const move=(delta:number)=>{const d=new Date(Date.UTC(year,month+delta,1));setYear(d.getUTCFullYear());setMonth(d.getUTCMonth())};
   const chaptersFor=(date:string)=>{const all=getPlanForDate(date)?.chapters??[];return all.filter(c=>settings.activeTracks.includes(c.track)).slice(0,Math.max(1,settings.chaptersPerDay))};
   const completion=(date:string)=>{const rows=chaptersFor(date);const done=rows.filter(c=>store[`${date}|${passageId(c.usfm,c.chapter)}`]==="complete").length;return{done,total:rows.length}};
