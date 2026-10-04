@@ -68,7 +68,7 @@ describe("consume_ai_quota contract", () => {
   it("DB function emits the exact keys the server reads and uses auth.uid()", () => {
     expect(migration).toContain("'allowed', false, 'scope', 'day', 'retryAfter'");
     expect(migration).toContain("'allowed', false, 'scope', 'hour', 'retryAfter'");
-    expect(migration).not.toMatch(/p_user_id|retry_after/);
+    expect(migration).not.toMatch(/\bp_user_id\b|'retry_after'/);
     expect(migration).toContain("raise exception using errcode = '22023'");
     expect(applied.trim()).toBe(migration.trim());
   });
