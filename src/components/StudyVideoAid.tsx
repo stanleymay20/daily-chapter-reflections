@@ -77,7 +77,7 @@ export function StudyVideoAid({ video, label, poster }: { video: Video; label: s
         <div className="grid aspect-video place-items-center border-t bg-muted/40 px-8 text-center">
           <div>
             <Film className="mx-auto size-8 text-muted-foreground" aria-hidden />
-            <p className="mt-2 text-sm text-muted-foreground">Create a short, silent-speech interpretive clip from this saved chapter guide. Nothing is generated until you tap the button.</p>
+            <p className="mt-2 text-sm text-muted-foreground">Create a short interpretive clip (no speech) from this saved chapter guide. Nothing is generated until you tap the button.</p>
           </div>
         </div>
       ) : null}
