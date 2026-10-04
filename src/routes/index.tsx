@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { BookHeart, BookOpen, Check, ChevronRight, Circle, CircleDot, Clock3, Flame, Headphones, MoonStar, Sparkles } from "lucide-react";
+import { BookOpen, Check, ChevronRight, Circle, CircleDot, Clock3, Headphones } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import { ApiStateNotice } from "@/components/ApiStateNotice";
@@ -9,7 +9,6 @@ import { TranslationPicker } from "@/components/TranslationPicker";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { pickDefaultVersion, useProgress, useSelectedVersion } from "@/hooks/useReadingState";
 import { DEFAULT_SETTINGS, loadSettings, type AppSettings } from "@/lib/app-state";
