@@ -21,6 +21,10 @@ function jsonResponse(body: unknown, status = 200) {
   });
 }
 
+function fetchCalls(fetchMock: ReturnType<typeof vi.fn>) {
+  return fetchMock.mock.calls as unknown as Array<[RequestInfo | URL, RequestInit | undefined]>;
+}
+
 describe("authorizeAiRequest", () => {
   it("rejects unauthenticated paid AI requests before any upstream call", async () => {
     const fetchMock = vi.fn();
@@ -42,7 +46,7 @@ describe("authorizeAiRequest", () => {
       status: 401,
     });
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(String(fetchMock.mock.calls[0]?.[0])).toContain("/auth/v1/user");
+    expect(String(fetchCalls(fetchMock)[0]?.[0])).toContain("/auth/v1/user");
   });
 
   it("fails closed when Supabase Auth infrastructure cannot verify the session", async () => {
@@ -70,7 +74,7 @@ describe("authorizeAiRequest", () => {
       error: expect.stringContaining("could not be verified"),
     });
     expect(fetchMock).toHaveBeenCalledTimes(2);
-    expect(String(fetchMock.mock.calls[1]?.[0])).toContain("/rest/v1/rpc/consume_ai_quota");
+    expect(String(fetchCalls(fetchMock)[1]?.[0])).toContain("/rest/v1/rpc/consume_ai_quota");
   });
 
   it("allows a verified user only after the database quota RPC permits the feature", async () => {
@@ -86,8 +90,9 @@ describe("authorizeAiRequest", () => {
     });
     expect(fetchMock).toHaveBeenCalledTimes(2);
 
-    const authHeaders = new Headers(fetchMock.mock.calls[0]?.[1]?.headers as HeadersInit);
-    const quotaHeaders = new Headers(fetchMock.mock.calls[1]?.[1]?.headers as HeadersInit);
+    const calls = fetchCalls(fetchMock);
+    const authHeaders = new Headers(calls[0]?.[1]?.headers);
+    const quotaHeaders = new Headers(calls[1]?.[1]?.headers);
     expect(authHeaders.get("Authorization")).toBe("Bearer signed-token");
     expect(quotaHeaders.get("Authorization")).toBe("Bearer signed-token");
   });
