@@ -9,7 +9,7 @@ function source(relativeFromTest: string) {
 const migration = source("../../../supabase/migrations/20261004090000_study_image_persistence.sql");
 const imageRoute = source("../../routes/api/generate-study-image.ts");
 const imageHook = source("../../hooks/useStudyVisuals.ts");
-const imageClient = source("../study-media.client.ts");
+const imageClient = source("../study-media.ts");
 const imageServer = source("../study-media.server.ts");
 const reader = source("../../routes/read.$passage.tsx");
 
