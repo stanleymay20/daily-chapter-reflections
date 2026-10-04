@@ -27,7 +27,8 @@ describe("paid AI authorization boundary", () => {
 
   it("fails closed when authentication or quota infrastructure cannot be verified", () => {
     expect(aiAccess).toContain('status: 503');
-    expect(aiAccess).toContain("AI access could not be verified");
+    expect(aiAccess).toContain("AI_MESSAGES.unavailable");
+    expect(source("../ai-error.ts")).toContain("AI access could not be verified");
     expect(aiAccess).toContain("/rest/v1/rpc/consume_ai_quota");
   });
 

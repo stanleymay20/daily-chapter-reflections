@@ -38,6 +38,36 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_usage_counters: {
+        Row: {
+          day_bucket: string
+          day_count: number
+          feature: string
+          hour_bucket: string
+          hour_count: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          day_bucket: string
+          day_count?: number
+          feature: string
+          hour_bucket: string
+          hour_count?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          day_bucket?: string
+          day_count?: number
+          feature?: string
+          hour_bucket?: string
+          hour_count?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       chapter_notes: {
         Row: {
           note: string
@@ -320,7 +350,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      consume_ai_quota: { Args: { p_feature: string }; Returns: Json }
     }
     Enums: {
       [_ in never]: never
