@@ -494,7 +494,7 @@ function sceneStates(scenes: SceneRow[]) {
 export async function advanceSequence(ctx: EngineContext, videoId: string): Promise<AdvanceResult> {
   let row = await ctx.db.loadVideo(videoId);
   if (!row || row.kind !== "sequence") throw new ProviderError(404, "This study video was not found.");
-  if (row.status === "queued") row = (await ctx.db.patchVideo(row.id, { status: "generating" }, { status: "eq.queued" })) ?? row;
+  // Queued rows have not been charged the 'video' quota yet; only sequence-start may move them on.
   if (row.status !== "generating") return { row, scenes: await ctx.db.loadScenes(row.id), worked: false, waiting: false };
 
   if (row.stage === "planning" || !row.stage) return runPlanning(ctx, row);
