@@ -1,6 +1,6 @@
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { Bookmark, Brain, CheckCircle2, Heart, Highlighter, NotebookPen, Plus, Search, Sparkles, Trash2 } from "lucide-react";
+import { BookOpen, Bookmark, Brain, CheckCircle2, Heart, Highlighter, NotebookPen, Plus, Search, Sparkles, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";

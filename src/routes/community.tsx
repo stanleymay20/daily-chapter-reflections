@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Heart, MessageCircle, Send, ShieldAlert, Trash2 } from "lucide-react";
+import { Heart, MessageCircle, Users, Send, ShieldAlert, Trash2 } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -25,7 +25,7 @@ function CommunityPage(){
   const [replyBody,setReplyBody]=useState("");
   const [message,setMessage]=useState("");
 
-  const load=async()=>{
+  const load=async()=>{try{
     const sb=requireSupabase();
     const [{data:p},{data:l},{data:c},{data:{user}}]=await Promise.all([
       sb.from("community_posts").select("id,user_id,reference,excerpt,body,created_at").order("created_at",{ascending:false}).limit(50),
