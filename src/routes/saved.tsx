@@ -1,6 +1,6 @@
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { Bookmark, Brain, CheckCircle2, Heart, Highlighter, NotebookPen, Plus, Search, Sparkles, Trash2 } from "lucide-react";
+import { BookOpen, Bookmark, Brain, CheckCircle2, Heart, Highlighter, NotebookPen, Plus, Search, Sparkles, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -39,7 +39,7 @@ function JournalPage(){
   const ask=async()=>{if(!memoryQuestion.trim())return;setAsking(true);setMemoryMessage("");setMemoryAnswer(null);const res=await askMemory({data:{question:memoryQuestion.trim(),sources:memorySources}});setAsking(false);if(res.ok)setMemoryAnswer(res.answer);else setMemoryMessage(res.error)};
   const addPrayer=()=>{if(addPersonalPrayer(newPrayer)){setNewPrayer("");refresh()}};
   const toggleAnswered=(p:PrayerView)=>{const current=prayerStatuses[p.id];if(isPrayerAnswered(current)){setPrayerAnswered(p.id,false);refresh();return}const note=window.prompt("Optional: how was this prayer answered?",current?.answerNote||"")??"";setPrayerAnswered(p.id,true,note);refresh()};
-  return <main className="mx-auto min-h-screen w-full max-w-2xl px-4 pb-28 pt-8 sm:px-6">
+  return <main className="mx-auto min-h-screen w-full max-w-2xl px-4 pb-nav pt-8 sm:px-6">
     <div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Your study memory</p><h1 className="mt-1 font-[family-name:var(--font-scripture)] text-4xl font-semibold">Study Journal</h1><p className="mt-2 text-sm text-muted-foreground">Your observations, prayers, highlights and reviews—kept distinct from AI study guidance.</p></div>
     <div className="relative mt-5"><Search className="absolute left-3 top-3 size-4 text-muted-foreground"/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search your study memory…" className="h-10 w-full rounded-xl border bg-background pl-9 pr-3 text-sm"/></div>
     <div className="mt-4 grid grid-cols-5 rounded-xl bg-muted p-1">{(["notes","verses","prayers","reviews","memory"] as Tab[]).map(t=><button key={t} onClick={()=>setTab(t)} className={`rounded-lg px-1 py-2 text-[10px] font-medium capitalize sm:text-[11px] ${tab===t?"bg-background shadow-sm":"text-muted-foreground"}`}>{t}</button>)}</div>
@@ -56,5 +56,5 @@ function JournalPage(){
   </main>;
 }
 function JournalLine({label,text}:{label:string;text:string}){return <div className="mt-3"><p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</p><p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed">{text}</p></div>}
-function Empty({text}:{text:string}){return <Card className="p-8 text-center text-sm text-muted-foreground">{text}</Card>}
+function Empty({text}:{text:string}){return <Card className="flex flex-col items-center gap-3 p-8 text-center"><BookOpen className="size-6 text-primary" aria-hidden="true"/><p className="max-w-xs text-sm text-muted-foreground">{text}</p><Link to="/" className="inline-flex min-h-11 items-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground">Go to today's reading</Link></Card>}
 function MemoryList({title,items}:{title:string;items:string[]}){if(!items?.length)return null;return <Card className="p-4"><h3 className="text-sm font-semibold">{title}</h3><ul className="mt-2 space-y-2 text-sm text-muted-foreground">{items.map((x,i)=><li key={i}>• {x}</li>)}</ul></Card>}

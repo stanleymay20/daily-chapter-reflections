@@ -21,7 +21,7 @@ function PlansPage(){
   const commit=(next:AppSettings)=>{setSettings(next);saveSettings(next)};
   const apply=(name:string)=>{const t=templates[name];if(!t)return;commit({...settings,chaptersPerDay:t.n,activeTracks:t.tracks})};
   const toggle=(track:string)=>{const active=settings.activeTracks.includes(track);let tracks=active?settings.activeTracks.filter(x=>x!==track):[...settings.activeTracks,track];tracks=TRACKS.map(t=>t.track).filter(x=>tracks.includes(x));commit({...settings,activeTracks:tracks,chaptersPerDay:Math.min(7,Math.max(1,tracks.length))})};
-  return <main className="mx-auto min-h-screen w-full max-w-md px-5 pb-28 pt-8">
+  return <main className="mx-auto min-h-screen w-full max-w-md px-5 pb-nav pt-8">
     <h1 className="font-[family-name:var(--font-scripture)] text-3xl font-semibold">Study Plans</h1>
     <p className="mt-1 text-sm text-muted-foreground">The canonical 7-track plan is never changed. Personal mode only decides which tracks you read each day.</p>
     <section className="mt-5 grid grid-cols-2 gap-2">{Object.keys(templates).map(name=><Button key={name} variant="outline" className="h-auto whitespace-normal py-3 text-xs" onClick={()=>apply(name)}>{name}</Button>)}</section>

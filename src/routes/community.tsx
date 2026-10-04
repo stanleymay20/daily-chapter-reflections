@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Heart, MessageCircle, Send, ShieldAlert, Trash2 } from "lucide-react";
+import { Heart, MessageCircle, Users, Send, ShieldAlert, Trash2 } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -24,17 +24,19 @@ function CommunityPage(){
   const [replyTo,setReplyTo]=useState<string | null>(null);
   const [replyBody,setReplyBody]=useState("");
   const [message,setMessage]=useState("");
+  const [status,setStatus]=useState<"loading"|"ready"|"error">("loading");
 
-  const load=async()=>{
+  const load=async()=>{try{
     const sb=requireSupabase();
-    const [{data:p},{data:l},{data:c},{data:{user}}]=await Promise.all([
+    const [{data:p,error:pe},{data:l},{data:c},{data:{user}}]=await Promise.all([
       sb.from("community_posts").select("id,user_id,reference,excerpt,body,created_at").order("created_at",{ascending:false}).limit(50),
       sb.from("post_likes").select("post_id,user_id"),
       sb.from("comments").select("id,post_id,user_id,parent_id,body,created_at").order("created_at",{ascending:true}),
       sb.auth.getUser(),
     ]);
     setPosts((p??[]) as Post[]);setLikes((l??[]) as Like[]);setComments((c??[]) as Comment[]);setUserId(user?.id??null);
-  };
+    if(pe)throw pe;setStatus("ready");
+  }catch(e){setStatus("error");throw e}};
   useEffect(()=>{load().catch(e=>setMessage(e instanceof Error?e.message:"Unable to load community."));const sb=requireSupabase();const {data}=sb.auth.onAuthStateChange(()=>void load());return()=>data.subscription.unsubscribe();},[]);
 
   const signOut=async()=>{await requireSupabase().auth.signOut();await load();};
@@ -45,11 +47,11 @@ function CommunityPage(){
   const report=async(id:string)=>{if(!userId)return;const reason=window.prompt("Why are you reporting this post?");if(!reason?.trim())return;const {error}=await requireSupabase().from("post_reports").insert({post_id:id,user_id:userId,reason:reason.trim()});setMessage(error?error.message:"Report submitted.");};
   const commentsByPost=useMemo(()=>new Map(posts.map(p=>[p.id,comments.filter(c=>c.post_id===p.id)])),[posts,comments]);
 
-  return <main className="mx-auto min-h-screen w-full max-w-md px-5 pb-28 pt-8">
+  return <main className="mx-auto min-h-screen w-full max-w-md px-5 pb-nav pt-8">
     <div className="flex items-start justify-between"><div><h1 className="font-[family-name:var(--font-scripture)] text-3xl font-semibold">Community</h1><p className="mt-1 text-sm text-muted-foreground">Nothing is shared automatically. Posts are always opt-in.</p></div>{userId?<Button size="sm" variant="outline" onClick={signOut}>Sign out</Button>:null}</div>
     {!userId?<Card className="mt-5 p-4"><h2 className="font-medium">Sign in to post, like or comment</h2><p className="mt-1 text-xs text-muted-foreground">Anyone can read the community. Your private notes and highlights never appear here unless you deliberately create a post.</p><EmailCodeSignIn onSignedIn={load}/></Card>:<Card className="mt-5 p-4"><h2 className="font-medium">Share with community</h2><p className="mt-1 text-xs text-muted-foreground">Use a reference and only a short Scripture excerpt. Your reflection is your own content.</p><form onSubmit={createPost} className="mt-3 space-y-2"><input required value={reference} onChange={e=>setReference(e.target.value)} placeholder="Reference, e.g. Genesis 42:1–5" className="w-full rounded-md border bg-background p-2 text-sm"/><Textarea value={excerpt} onChange={e=>setExcerpt(e.target.value.slice(0,240))} placeholder="Optional short excerpt (max 240 characters)"/><Textarea required value={body} onChange={e=>setBody(e.target.value)} placeholder="Your reflection or question"/><div className="flex justify-between text-xs text-muted-foreground"><span>{excerpt.length}/240 excerpt</span><Button type="submit" size="sm"><Send className="mr-1 size-3.5"/>Post</Button></div></form></Card>}
     {message?<p className="mt-3 rounded-md bg-muted p-2 text-xs">{message}</p>:null}
-    <section className="mt-5 space-y-4">{posts.map(post=>{const pcs=commentsByPost.get(post.id)??[];const roots=pcs.filter(c=>!c.parent_id);const likeCount=likes.filter(l=>l.post_id===post.id).length;const liked=userId?likes.some(l=>l.post_id===post.id&&l.user_id===userId):false;return <Card key={post.id} className="p-4"><div className="flex items-start justify-between"><div><p className="text-xs font-medium text-primary">{post.reference}</p><p className="mt-1 text-[10px] text-muted-foreground">{new Date(post.created_at).toLocaleString()}</p></div>{userId===post.user_id?<Button size="icon" variant="ghost" onClick={()=>deletePost(post.id)}><Trash2 className="size-4"/></Button>:userId?<Button size="icon" variant="ghost" onClick={()=>report(post.id)}><ShieldAlert className="size-4"/></Button>:null}</div>{post.excerpt?<p className="mt-3 border-l-2 pl-3 font-[family-name:var(--font-scripture)] text-sm leading-relaxed">“{post.excerpt}”</p>:null}<p className="mt-3 text-sm leading-relaxed">{post.body}</p><div className="mt-3 flex gap-2"><Button size="sm" variant={liked?"default":"outline"} disabled={!userId} onClick={()=>toggleLike(post.id)}><Heart className="mr-1 size-3.5"/>{likeCount}</Button><Button size="sm" variant="outline" disabled={!userId} onClick={()=>setReplyTo(replyTo===post.id?null:post.id)}><MessageCircle className="mr-1 size-3.5"/>{pcs.length}</Button></div>{replyTo===post.id?<div className="mt-3 flex gap-2"><input value={replyBody} onChange={e=>setReplyBody(e.target.value)} placeholder="Write a comment" className="min-w-0 flex-1 rounded-md border bg-background px-3 text-sm"/><Button size="sm" onClick={()=>addComment(post.id,null,replyBody)}>Send</Button></div>:null}<div className="mt-3 space-y-2">{roots.map(c=><CommentTree key={c.id} comment={c} all={pcs} userId={userId} onReply={addComment}/>)}</div></Card>})}</section>
+    <section className="mt-5 space-y-4">{status==="loading"?Array.from({length:3}).map((_,i)=><Card key={i} className="h-32 animate-pulse bg-muted/60" aria-hidden="true"/>):status==="error"?<Card className="flex flex-col items-center gap-3 p-8 text-center"><p className="text-sm text-muted-foreground">The community couldn't load. Check your connection and try again.</p><Button variant="outline" className="min-h-11" onClick={()=>{setStatus("loading");load().catch(()=>{})}}>Try again</Button></Card>:posts.length===0?<Card className="flex flex-col items-center gap-2 p-8 text-center"><Users className="size-6 text-primary" aria-hidden="true"/><p className="text-sm font-medium">No posts yet</p><p className="max-w-xs text-xs text-muted-foreground">Be the first to share a short reflection on today's reading.</p></Card>:posts.map(post=>{const pcs=commentsByPost.get(post.id)??[];const roots=pcs.filter(c=>!c.parent_id);const likeCount=likes.filter(l=>l.post_id===post.id).length;const liked=userId?likes.some(l=>l.post_id===post.id&&l.user_id===userId):false;return <Card key={post.id} className="p-4"><div className="flex items-start justify-between"><div><p className="text-xs font-medium text-primary">{post.reference}</p><p className="mt-1 text-[10px] text-muted-foreground">{new Date(post.created_at).toLocaleString()}</p></div>{userId===post.user_id?<Button size="icon" variant="ghost" onClick={()=>deletePost(post.id)}><Trash2 className="size-4"/></Button>:userId?<Button size="icon" variant="ghost" onClick={()=>report(post.id)}><ShieldAlert className="size-4"/></Button>:null}</div>{post.excerpt?<p className="mt-3 border-l-2 pl-3 font-[family-name:var(--font-scripture)] text-sm leading-relaxed">“{post.excerpt}”</p>:null}<p className="mt-3 text-sm leading-relaxed">{post.body}</p><div className="mt-3 flex gap-2"><Button size="sm" variant={liked?"default":"outline"} disabled={!userId} onClick={()=>toggleLike(post.id)}><Heart className="mr-1 size-3.5"/>{likeCount}</Button><Button size="sm" variant="outline" disabled={!userId} onClick={()=>setReplyTo(replyTo===post.id?null:post.id)}><MessageCircle className="mr-1 size-3.5"/>{pcs.length}</Button></div>{replyTo===post.id?<div className="mt-3 flex gap-2"><input value={replyBody} onChange={e=>setReplyBody(e.target.value)} placeholder="Write a comment" className="min-w-0 flex-1 rounded-md border bg-background px-3 text-sm"/><Button size="sm" onClick={()=>addComment(post.id,null,replyBody)}>Send</Button></div>:null}<div className="mt-3 space-y-2">{roots.map(c=><CommentTree key={c.id} comment={c} all={pcs} userId={userId} onReply={addComment}/>)}</div></Card>})}</section>
   </main>;
 }
 

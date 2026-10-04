@@ -20,7 +20,7 @@ export const Route=createRootRouteWithContext<{queryClient:QueryClient}>()({
   shellComponent:RootShell,component:RootComponent,notFoundComponent:NotFoundComponent,errorComponent:ErrorComponent,
 });
 
-function RootShell({children}:{children:ReactNode}){return <html lang="en"><head><HeadContent/></head><body>{children}<Scripts/></body></html>}
+function RootShell({children}:{children:ReactNode}){return <html lang="en" data-theme="system" suppressHydrationWarning><head><HeadContent/></head><body>{children}<Scripts/></body></html>}
 
 // After a new deploy or restart the browser can request script chunks that no
 // longer exist; "Importing a module script failed" then blanks the page. One
