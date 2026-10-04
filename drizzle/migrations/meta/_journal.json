@@ -43,6 +43,13 @@
       "when": 1791154768124,
       "tag": "0005_study_video_aid",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1791156035890,
+      "tag": "0006_study_video_sequences",
+      "breakpoints": true
     }
   ]
 }

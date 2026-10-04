@@ -428,63 +428,182 @@ export type Database = {
         }
         Relationships: []
       }
-      study_videos: {
+      study_video_scenes: {
         Row: {
+          claim_type: string
           created_at: string
-          duration_seconds: number
-          guide_hash: string
           id: string
           last_error: string | null
+          narration: string
+          narration_key: string | null
+          narration_path: string | null
+          narration_seconds: number | null
+          narration_status: string
+          role: string
+          scene_index: number
+          scripture_quote: string | null
+          source_refs: Json
+          tts_text: string | null
+          updated_at: string
+          user_id: string
+          video_id: string
+          visual_brief: string
+          visual_job_id: string | null
+          visual_key: string | null
+          visual_kind: string
+          visual_path: string | null
+          visual_status: string
+        }
+        Insert: {
+          claim_type: string
+          created_at?: string
+          id?: string
+          last_error?: string | null
+          narration: string
+          narration_key?: string | null
+          narration_path?: string | null
+          narration_seconds?: number | null
+          narration_status?: string
+          role: string
+          scene_index: number
+          scripture_quote?: string | null
+          source_refs?: Json
+          tts_text?: string | null
+          updated_at?: string
+          user_id: string
+          video_id: string
+          visual_brief: string
+          visual_job_id?: string | null
+          visual_key?: string | null
+          visual_kind: string
+          visual_path?: string | null
+          visual_status?: string
+        }
+        Update: {
+          claim_type?: string
+          created_at?: string
+          id?: string
+          last_error?: string | null
+          narration?: string
+          narration_key?: string | null
+          narration_path?: string | null
+          narration_seconds?: number | null
+          narration_status?: string
+          role?: string
+          scene_index?: number
+          scripture_quote?: string | null
+          source_refs?: Json
+          tts_text?: string | null
+          updated_at?: string
+          user_id?: string
+          video_id?: string
+          visual_brief?: string
+          visual_job_id?: string | null
+          visual_key?: string | null
+          visual_kind?: string
+          visual_path?: string | null
+          visual_status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "study_video_scenes_video_id_fkey"
+            columns: ["video_id"]
+            isOneToOne: false
+            referencedRelation: "study_videos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      study_videos: {
+        Row: {
+          call_budget: Json
+          call_usage: Json
+          created_at: string
+          duration_seconds: number
+          estimated_seconds: number | null
+          guide_hash: string
+          id: string
+          kind: string
+          last_error: string | null
+          manifest: Json | null
           model: string
           passage: string
+          plan_hash: string | null
+          plan_title: string | null
+          plan_version: string | null
           progress: number | null
           prompt_version: string
           provider: string
           provider_job_id: string | null
           scenes: Json
           selected_at: string
+          stage: string | null
+          stage_error: string | null
           status: string
           storage_path: string | null
+          study_mode: string | null
           updated_at: string
           user_id: string
           version_id: number
         }
         Insert: {
+          call_budget?: Json
+          call_usage?: Json
           created_at?: string
           duration_seconds?: number
+          estimated_seconds?: number | null
           guide_hash: string
           id?: string
+          kind?: string
           last_error?: string | null
+          manifest?: Json | null
           model: string
           passage: string
+          plan_hash?: string | null
+          plan_title?: string | null
+          plan_version?: string | null
           progress?: number | null
           prompt_version: string
           provider?: string
           provider_job_id?: string | null
           scenes?: Json
           selected_at?: string
+          stage?: string | null
+          stage_error?: string | null
           status?: string
           storage_path?: string | null
+          study_mode?: string | null
           updated_at?: string
           user_id: string
           version_id: number
         }
         Update: {
+          call_budget?: Json
+          call_usage?: Json
           created_at?: string
           duration_seconds?: number
+          estimated_seconds?: number | null
           guide_hash?: string
           id?: string
+          kind?: string
           last_error?: string | null
+          manifest?: Json | null
           model?: string
           passage?: string
+          plan_hash?: string | null
+          plan_title?: string | null
+          plan_version?: string | null
           progress?: number | null
           prompt_version?: string
           provider?: string
           provider_job_id?: string | null
           scenes?: Json
           selected_at?: string
+          stage?: string | null
+          stage_error?: string | null
           status?: string
           storage_path?: string | null
+          study_mode?: string | null
           updated_at?: string
           user_id?: string
           version_id?: number
@@ -557,11 +676,29 @@ export type Database = {
     }
     Functions: {
       consume_ai_quota: { Args: { p_feature: string }; Returns: Json }
+      consume_study_video_call: {
+        Args: { p_kind: string; p_video_id: string }
+        Returns: boolean
+      }
+      lock_study_video_plan: {
+        Args: { p_plan_hash: string; p_title: string; p_video_id: string }
+        Returns: boolean
+      }
       reserve_study_image_job: {
         Args: {
           p_guide_hash: string
           p_passage: string
           p_prompt_version: string
+          p_version_id: number
+        }
+        Returns: Json
+      }
+      reserve_study_sequence: {
+        Args: {
+          p_force?: boolean
+          p_guide_hash: string
+          p_mode: string
+          p_passage: string
           p_version_id: number
         }
         Returns: Json
