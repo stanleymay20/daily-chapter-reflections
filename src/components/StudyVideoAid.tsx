@@ -1,15 +1,25 @@
-import { Film, Loader2 } from "lucide-react";
+import { Film, Loader2, RotateCcw, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
+import { StudySequencePlayer } from "@/components/StudySequencePlayer";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
+import type { useStudySequence } from "@/hooks/useStudySequence";
 import type { useStudyVideo } from "@/hooks/useStudyVideo";
-import { STUDY_VIDEO_DURATION_SECONDS, STUDY_VIDEO_LABEL, scenesToVtt } from "@/lib/study-video.shared";
+import { MODE_SPECS, SEQUENCE_LABEL, estimateFor, type SequenceMode } from "@/lib/study-sequence.shared";
+import { scenesToVtt } from "@/lib/study-video.shared";
 
-type Video = ReturnType<typeof useStudyVideo>;
+type Sequence = ReturnType<typeof useStudySequence>;
+type Legacy = ReturnType<typeof useStudyVideo>;
 
-export function StudyVideoAid({ video, label, poster }: { video: Video; label: string; poster?: string | undefined }) {
+const STAGES = [
+  { id: "planning", label: "Planning" },
+  { id: "visuals", label: "Visuals" },
+  { id: "narration", label: "Narration" },
+  { id: "finalizing", label: "Finalizing" },
+] as const;
+
+function LegacyClip({ video, label, poster }: { video: Legacy; label: string; poster?: string | undefined }) {
   const selected = video.selected;
   const [trackUrl, setTrackUrl] = useState("");
   const vtt = useMemo(() => (selected?.scenes.length ? scenesToVtt(selected.scenes) : ""), [selected]);
@@ -19,85 +29,125 @@ export function StudyVideoAid({ video, label, poster }: { video: Video; label: s
     setTrackUrl(url);
     return () => URL.revokeObjectURL(url);
   }, [vtt]);
+  if (!selected) return null;
+  return (
+    <details className="border-t px-4 py-3">
+      <summary className="min-h-11 cursor-pointer py-2 text-xs font-semibold">Earlier short clip (no narration)</summary>
+      <video key={selected.id} className="mt-2 aspect-video w-full rounded-md bg-muted" controls playsInline preload="metadata" poster={poster} src={selected.url}
+        aria-label={`AI-created interpretive clip for ${label}. Not Scripture.`}>
+        {trackUrl ? <track kind="captions" srcLang="en" label="Scene descriptions" src={trackUrl} /> : null}
+      </video>
+    </details>
+  );
+}
+
+export function StudyVideoAid({ sequence, legacy, label, poster }: { sequence: Sequence; legacy: Legacy; label: string; poster?: string | undefined }) {
+  const estimate = estimateFor(sequence.mode);
+  const step = sequence.step;
+  const active = sequence.active;
+  const stageIndex = STAGES.findIndex((s) => s.id === (active?.stage ?? step?.stage));
+  const failed = active?.status === "failed";
 
   return (
     <Card className="overflow-hidden">
-      <div className="flex flex-wrap items-center justify-between gap-3 p-4">
+      <div className="p-4">
         <div className="flex items-center gap-2">
           <Film className="size-4 text-primary" aria-hidden />
           <div>
-            <h3 className="text-sm font-semibold">Video aid</h3>
-            <p className="text-[11px] text-muted-foreground">{STUDY_VIDEO_LABEL}</p>
+            <h3 className="text-sm font-semibold">Video aid · narrated study</h3>
+            <p className="text-[11px] text-muted-foreground">{SEQUENCE_LABEL}</p>
           </div>
         </div>
-        <div className="flex gap-2">
-          {video.generating ? <Button className="min-h-11" size="sm" variant="outline" onClick={() => void video.cancelVideo()}>Cancel</Button> : null}
-          <Button className="min-h-11" size="sm" onClick={() => void video.createVideo()} disabled={video.generating}>
-            {video.generating ? <><Loader2 className="mr-1 size-4 animate-spin" />Creating…</> : selected ? "Create again" : "Generate video aid"}
-          </Button>
-        </div>
-      </div>
 
-      {video.generating ? (
-        <div className="border-t px-4 py-4" role="status" aria-live="polite">
-          <p className="text-xs text-muted-foreground">Creating a {STUDY_VIDEO_DURATION_SECONDS}-second clip from your saved chapter guide. This usually takes 1–3 minutes; you can keep reading.</p>
-          <Progress className="mt-3" value={video.progress ?? 5} aria-label="Video aid progress" />
-        </div>
-      ) : null}
+        {!sequence.suggested ? <p className="mt-3 text-xs text-muted-foreground">You're in Just Read. A study video is optional; reading the chapter comes first.</p> : null}
 
-      {selected ? (
-        <div className="border-t bg-muted/40">
-          <div className="relative">
-            <video
-              key={selected.id}
-              className="aspect-video w-full bg-muted"
-              controls
-              playsInline
-              preload="metadata"
-              poster={poster}
-              src={selected.url}
-              aria-label={`AI-created interpretive study video for ${label}. Not Scripture.`}
-              aria-describedby={`video-scenes-${selected.id}`}
-            >
-              {trackUrl ? <track kind="captions" srcLang="en" label="Scene descriptions" src={trackUrl} /> : null}
-            </video>
-            <span className="pointer-events-none absolute left-2 top-2 rounded-md bg-background/85 px-2 py-1 text-[10px] font-medium text-foreground">{STUDY_VIDEO_LABEL}</span>
-          </div>
-          <div className="border-t px-4 py-3">
-            <p className="text-[11px] leading-relaxed text-muted-foreground">An AI-generated artistic interpretation of your saved chapter guide—not historical footage and not Scripture. It has no speech; the soundtrack is quiet instrumental. Return to the text for what the chapter says.</p>
-            <details className="mt-2">
-              <summary className="min-h-11 cursor-pointer py-2 text-xs font-semibold">Scene descriptions</summary>
-              <ol id={`video-scenes-${selected.id}`} className="space-y-1 text-xs text-muted-foreground">
-                {selected.scenes.map((scene, i) => <li key={i}><span className="tabular-nums">{scene.start}–{scene.end}s</span> · {scene.description}</li>)}
-              </ol>
-            </details>
-          </div>
-        </div>
-      ) : !video.generating ? (
-        <div className="grid aspect-video place-items-center border-t bg-muted/40 px-8 text-center">
-          <div>
-            <Film className="mx-auto size-8 text-muted-foreground" aria-hidden />
-            <p className="mt-2 text-sm text-muted-foreground">Create a short interpretive clip (no speech) from this saved chapter guide. Nothing is generated until you tap the button.</p>
-          </div>
-        </div>
-      ) : null}
-
-      {video.notice ? <p className="border-t px-4 py-3 text-xs text-muted-foreground">{video.notice}</p> : null}
-      {video.error ? <p className="border-t px-4 py-3 text-xs text-destructive" role="alert">{video.error}</p> : null}
-
-      {video.versions.length > 1 ? (
-        <div className="border-t p-4">
-          <p className="text-xs font-semibold">Saved versions</p>
-          <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
-            {video.versions.map((version, index) => (
-              <button key={version.id} type="button" disabled={video.generating} aria-pressed={selected?.id === version.id} onClick={() => void video.chooseVersion(version)}
-                className={`min-h-11 shrink-0 rounded-lg border px-3 text-xs ${selected?.id === version.id ? "ring-2 ring-primary" : "hover:border-primary/50"} disabled:opacity-50`}>
-                Version {video.versions.length - index} · {version.createdAt.slice(0, 10)}
+        <fieldset className="mt-3" disabled={sequence.generating}>
+          <legend className="text-xs font-medium">Length</legend>
+          <div className="mt-2 grid grid-cols-3 gap-2">
+            {(Object.keys(MODE_SPECS) as SequenceMode[]).map((m) => (
+              <button key={m} type="button" aria-pressed={sequence.mode === m} onClick={() => sequence.setMode(m)}
+                className={`min-h-11 rounded-lg border px-2 text-xs ${sequence.mode === m ? "border-primary bg-primary/10 font-semibold" : "hover:border-primary/50"} disabled:opacity-50`}>
+                {MODE_SPECS[m].label}
+                <span className="block text-[10px] font-normal text-muted-foreground">{Math.round(MODE_SPECS[m].targetSeconds[0] / 60 * 10) / 10}–{Math.round(MODE_SPECS[m].targetSeconds[1] / 60 * 10) / 10} min</span>
               </button>
             ))}
           </div>
+        </fieldset>
+
+        <p className="mt-3 text-[11px] leading-relaxed text-muted-foreground">
+          About {estimate.seconds[0]}–{estimate.seconds[1]} seconds, {estimate.scenes[0]}–{estimate.scenes[1]} narrated scenes. Uses AI credits:
+          about {estimate.calls.plan} planning, {estimate.calls.still} illustration, {estimate.calls.clip} motion-scene and {estimate.calls.tts} narration requests
+          (never more than {estimate.ceiling.plan + estimate.ceiling.still + estimate.ceiling.clip + estimate.ceiling.tts} in total, including retries). Motion scenes cost the most. Counts as 1 of your daily video aids.
+        </p>
+
+        <div className="mt-3 flex flex-wrap gap-2">
+          {sequence.generating ? (
+            <Button className="min-h-11" variant="outline" size="sm" onClick={() => void sequence.cancel()}>Cancel</Button>
+          ) : failed ? (
+            <>
+              <Button className="min-h-11" size="sm" onClick={() => void sequence.retry()}><RotateCcw className="mr-1 size-4" />Retry failed stage</Button>
+              <Button className="min-h-11" variant="outline" size="sm" onClick={() => void sequence.cancel()}>Discard</Button>
+            </>
+          ) : (
+            <Button className="min-h-11" size="sm" onClick={() => void sequence.generate(Boolean(sequence.selected && sequence.selected.mode === sequence.mode))}>
+              {sequence.selected && sequence.selected.mode === sequence.mode ? "Create a new version" : "Generate study video"}
+            </Button>
+          )}
+          {sequence.generating && !step?.worked && step?.waiting === false && step?.status === "generating" ? (
+            <Button className="min-h-11" variant="ghost" size="sm" onClick={sequence.resume}>Resume</Button>
+          ) : null}
+        </div>
+      </div>
+
+      {sequence.generating || failed ? (
+        <div className="border-t px-4 py-4" role="status" aria-live="polite">
+          <ol className="grid grid-cols-4 gap-1 text-center text-[11px]">
+            {STAGES.map((s, i) => (
+              <li key={s.id} className={`rounded-md px-1 py-2 ${i < stageIndex ? "bg-primary/15" : i === stageIndex ? (failed ? "bg-destructive/15 font-semibold" : "bg-primary/25 font-semibold") : "bg-muted"}`}>
+                {i === stageIndex && !failed ? <Loader2 className="mx-auto mb-0.5 size-3 animate-spin" aria-hidden /> : null}
+                {s.label}
+              </li>
+            ))}
+          </ol>
+          {step ? (
+            <p className="mt-2 text-xs text-muted-foreground">
+              Visuals {step.visuals.done}/{step.visuals.total} · Narration {step.narration.done}/{step.narration.total}
+              {step.usage ? ` · ${Object.values(step.usage).reduce((n, v) => n + (v ?? 0), 0)} AI requests used` : ""}
+            </p>
+          ) : <p className="mt-2 text-xs text-muted-foreground">Checking the plan against your saved guide before anything else is generated. You can keep reading.</p>}
         </div>
       ) : null}
+
+      {sequence.selected ? <StudySequencePlayer sequence={sequence.selected} label={label} /> : !sequence.generating ? (
+        <div className="grid aspect-video place-items-center border-t bg-muted/40 px-8 text-center">
+          <p className="text-sm text-muted-foreground">A narrated, captioned walk through this chapter, built only from your saved guide. Nothing is generated until you tap the button.</p>
+        </div>
+      ) : null}
+
+      {sequence.notice ? <p className="border-t px-4 py-3 text-xs text-muted-foreground">{sequence.notice}</p> : null}
+      {sequence.error ? <p className="border-t px-4 py-3 text-xs text-destructive" role="alert">{sequence.error}</p> : null}
+
+      {sequence.saved.length ? (
+        <div className="border-t p-4">
+          <p className="text-xs font-semibold">Saved versions</p>
+          <ul className="mt-2 space-y-2">
+            {sequence.saved.map((s, i) => (
+              <li key={s.id} className="flex items-center gap-2">
+                <button type="button" aria-pressed={sequence.selected?.id === s.id} onClick={() => sequence.setSelectedId(s.id)}
+                  className={`min-h-11 flex-1 rounded-lg border px-3 text-left text-xs ${sequence.selected?.id === s.id ? "ring-2 ring-primary" : "hover:border-primary/50"}`}>
+                  Version {sequence.saved.length - i} · {MODE_SPECS[s.mode]?.label ?? s.mode} · {Math.round(s.manifest.totalSeconds)}s · {s.createdAt.slice(0, 10)}
+                </button>
+                <Button size="icon" variant="ghost" className="size-11" aria-label={`Delete version ${sequence.saved.length - i}`}
+                  onClick={() => { if (window.confirm("Delete this saved study video?")) void sequence.remove(s.id); }}>
+                  <Trash2 className="size-4" />
+                </Button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
+      <LegacyClip video={legacy} label={label} poster={poster} />
     </Card>
   );
 }

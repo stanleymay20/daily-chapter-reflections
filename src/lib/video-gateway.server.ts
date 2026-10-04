@@ -24,7 +24,7 @@ async function jobResponse(response: Response): Promise<GatewayVideoJob> {
 }
 
 /** One create per explicit user action. Never retried automatically. */
-export async function createStudyVideo(apiKey: string, prompt: string, signal?: AbortSignal) {
+export async function createStudyVideo(apiKey: string, prompt: string, signal?: AbortSignal, seconds: number = STUDY_VIDEO_DURATION_SECONDS) {
   return jobResponse(
     await fetch(`${BASE_URL}/v1/videos`, {
       method: "POST",
@@ -32,7 +32,7 @@ export async function createStudyVideo(apiKey: string, prompt: string, signal?: 
       body: JSON.stringify({
         model: STUDY_VIDEO_MODEL,
         input: prompt,
-        response_format: { type: "video", resolution: STUDY_VIDEO_RESOLUTION, duration: `${STUDY_VIDEO_DURATION_SECONDS}s`, aspect_ratio: "16:9" },
+        response_format: { type: "video", resolution: STUDY_VIDEO_RESOLUTION, duration: `${Math.round(seconds)}s`, aspect_ratio: "16:9" },
       }),
       signal: signal ?? null,
     }),

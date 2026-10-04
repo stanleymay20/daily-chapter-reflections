@@ -18,6 +18,9 @@ import { Route as SavedRouteImport } from './routes/saved'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as ApiGenerateStudyImageRouteImport } from './routes/api/generate-study-image'
 import { Route as ReadPassageRouteImport } from './routes/read.$passage'
+import { Route as ApiStudyVideoAdvanceRouteImport } from './routes/api/study-video/advance'
+import { Route as ApiStudyVideoRetryRouteImport } from './routes/api/study-video/retry'
+import { Route as ApiStudyVideoSequenceStartRouteImport } from './routes/api/study-video/sequence-start'
 import { Route as ApiStudyVideoStartRouteImport } from './routes/api/study-video/start'
 import { Route as ApiStudyVideoStatusRouteImport } from './routes/api/study-video/status'
 import { Route as LovableEmailAuthPreviewRouteImport } from './routes/lovable/email/auth/preview'
@@ -68,6 +71,22 @@ const ReadPassageRoute = ReadPassageRouteImport.update({
   path: '/read/$passage',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiStudyVideoAdvanceRoute = ApiStudyVideoAdvanceRouteImport.update({
+  id: '/api/study-video/advance',
+  path: '/api/study-video/advance',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiStudyVideoRetryRoute = ApiStudyVideoRetryRouteImport.update({
+  id: '/api/study-video/retry',
+  path: '/api/study-video/retry',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiStudyVideoSequenceStartRoute =
+  ApiStudyVideoSequenceStartRouteImport.update({
+    id: '/api/study-video/sequence-start',
+    path: '/api/study-video/sequence-start',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiStudyVideoStartRoute = ApiStudyVideoStartRouteImport.update({
   id: '/api/study-video/start',
   path: '/api/study-video/start',
@@ -99,6 +118,9 @@ export interface FileRoutesByFullPath {
   '/settings': typeof SettingsRoute
   '/api/generate-study-image': typeof ApiGenerateStudyImageRoute
   '/read/$passage': typeof ReadPassageRoute
+  '/api/study-video/advance': typeof ApiStudyVideoAdvanceRoute
+  '/api/study-video/retry': typeof ApiStudyVideoRetryRoute
+  '/api/study-video/sequence-start': typeof ApiStudyVideoSequenceStartRoute
   '/api/study-video/start': typeof ApiStudyVideoStartRoute
   '/api/study-video/status': typeof ApiStudyVideoStatusRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
@@ -114,6 +136,9 @@ export interface FileRoutesByTo {
   '/settings': typeof SettingsRoute
   '/api/generate-study-image': typeof ApiGenerateStudyImageRoute
   '/read/$passage': typeof ReadPassageRoute
+  '/api/study-video/advance': typeof ApiStudyVideoAdvanceRoute
+  '/api/study-video/retry': typeof ApiStudyVideoRetryRoute
+  '/api/study-video/sequence-start': typeof ApiStudyVideoSequenceStartRoute
   '/api/study-video/start': typeof ApiStudyVideoStartRoute
   '/api/study-video/status': typeof ApiStudyVideoStatusRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
@@ -130,6 +155,9 @@ export interface FileRoutesById {
   '/settings': typeof SettingsRoute
   '/api/generate-study-image': typeof ApiGenerateStudyImageRoute
   '/read/$passage': typeof ReadPassageRoute
+  '/api/study-video/advance': typeof ApiStudyVideoAdvanceRoute
+  '/api/study-video/retry': typeof ApiStudyVideoRetryRoute
+  '/api/study-video/sequence-start': typeof ApiStudyVideoSequenceStartRoute
   '/api/study-video/start': typeof ApiStudyVideoStartRoute
   '/api/study-video/status': typeof ApiStudyVideoStatusRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
@@ -147,6 +175,9 @@ export interface FileRouteTypes {
     | '/settings'
     | '/api/generate-study-image'
     | '/read/$passage'
+    | '/api/study-video/advance'
+    | '/api/study-video/retry'
+    | '/api/study-video/sequence-start'
     | '/api/study-video/start'
     | '/api/study-video/status'
     | '/lovable/email/auth/preview'
@@ -162,6 +193,9 @@ export interface FileRouteTypes {
     | '/settings'
     | '/api/generate-study-image'
     | '/read/$passage'
+    | '/api/study-video/advance'
+    | '/api/study-video/retry'
+    | '/api/study-video/sequence-start'
     | '/api/study-video/start'
     | '/api/study-video/status'
     | '/lovable/email/auth/preview'
@@ -177,6 +211,9 @@ export interface FileRouteTypes {
     | '/settings'
     | '/api/generate-study-image'
     | '/read/$passage'
+    | '/api/study-video/advance'
+    | '/api/study-video/retry'
+    | '/api/study-video/sequence-start'
     | '/api/study-video/start'
     | '/api/study-video/status'
     | '/lovable/email/auth/preview'
@@ -193,6 +230,9 @@ export interface RootRouteChildren {
   SettingsRoute: typeof SettingsRoute
   ApiGenerateStudyImageRoute: typeof ApiGenerateStudyImageRoute
   ReadPassageRoute: typeof ReadPassageRoute
+  ApiStudyVideoAdvanceRoute: typeof ApiStudyVideoAdvanceRoute
+  ApiStudyVideoRetryRoute: typeof ApiStudyVideoRetryRoute
+  ApiStudyVideoSequenceStartRoute: typeof ApiStudyVideoSequenceStartRoute
   ApiStudyVideoStartRoute: typeof ApiStudyVideoStartRoute
   ApiStudyVideoStatusRoute: typeof ApiStudyVideoStatusRoute
   LovableEmailAuthPreviewRoute: typeof LovableEmailAuthPreviewRoute
@@ -264,6 +304,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ReadPassageRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/study-video/advance': {
+      id: '/api/study-video/advance'
+      path: '/api/study-video/advance'
+      fullPath: '/api/study-video/advance'
+      preLoaderRoute: typeof ApiStudyVideoAdvanceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/study-video/retry': {
+      id: '/api/study-video/retry'
+      path: '/api/study-video/retry'
+      fullPath: '/api/study-video/retry'
+      preLoaderRoute: typeof ApiStudyVideoRetryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/study-video/sequence-start': {
+      id: '/api/study-video/sequence-start'
+      path: '/api/study-video/sequence-start'
+      fullPath: '/api/study-video/sequence-start'
+      preLoaderRoute: typeof ApiStudyVideoSequenceStartRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/study-video/start': {
       id: '/api/study-video/start'
       path: '/api/study-video/start'
@@ -305,6 +366,9 @@ const rootRouteChildren: RootRouteChildren = {
   SettingsRoute: SettingsRoute,
   ApiGenerateStudyImageRoute: ApiGenerateStudyImageRoute,
   ReadPassageRoute: ReadPassageRoute,
+  ApiStudyVideoAdvanceRoute: ApiStudyVideoAdvanceRoute,
+  ApiStudyVideoRetryRoute: ApiStudyVideoRetryRoute,
+  ApiStudyVideoSequenceStartRoute: ApiStudyVideoSequenceStartRoute,
   ApiStudyVideoStartRoute: ApiStudyVideoStartRoute,
   ApiStudyVideoStatusRoute: ApiStudyVideoStatusRoute,
   LovableEmailAuthPreviewRoute: LovableEmailAuthPreviewRoute,
