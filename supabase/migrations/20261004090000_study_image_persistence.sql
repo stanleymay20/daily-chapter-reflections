@@ -161,13 +161,8 @@ $$;
 revoke all on function public.reserve_study_image_job(text, integer, text, text) from public, anon;
 grant execute on function public.reserve_study_image_job(text, integer, text, text) to authenticated;
 
--- Private media bucket. Browser uploads/downloads stay behind the signed-in user's JWT.
-insert into storage.buckets(id, name, public, file_size_limit, allowed_mime_types)
-values('study-images', 'study-images', false, 10485760, array['image/png']::text[])
-on conflict (id) do update
-set public = false,
-    file_size_limit = excluded.file_size_limit,
-    allowed_mime_types = excluded.allowed_mime_types;
+-- Private media bucket 'study-images' (public = false, 10 MB limit) is provisioned through the
+-- Storage API, not SQL. Browser uploads/downloads stay behind the signed-in user's JWT.
 
 drop policy if exists "study image objects own select" on storage.objects;
 create policy "study image objects own select" on storage.objects
