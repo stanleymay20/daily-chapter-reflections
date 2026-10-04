@@ -1,5 +1,5 @@
 import { Link, createFileRoute } from "@tanstack/react-router";
-import { Bell, CalendarPlus, ChevronRight, Cloud, TrendingUp, Users, Download, ListChecks, LogOut, RefreshCw, Trash2 } from "lucide-react";
+import { Bell, CalendarPlus, Cloud, TrendingUp, Users, Download, ListChecks, LogOut, RefreshCw, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
