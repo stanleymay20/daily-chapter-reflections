@@ -89,6 +89,36 @@ export type Database = {
         }
         Relationships: []
       }
+      chapter_studies: {
+        Row: {
+          completed_at: string | null
+          intention: string | null
+          passage: string
+          prayer: string | null
+          reflections: Json
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          intention?: string | null
+          passage: string
+          prayer?: string | null
+          reflections?: Json
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          intention?: string | null
+          passage?: string
+          prayer?: string | null
+          reflections?: Json
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       comments: {
         Row: {
           body: string
@@ -159,6 +189,33 @@ export type Database = {
           excerpt?: string | null
           id?: string
           reference?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      daily_reviews: {
+        Row: {
+          gratitude: string | null
+          prayer: string | null
+          review_date: string
+          takeaway: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          gratitude?: string | null
+          prayer?: string | null
+          review_date: string
+          takeaway?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          gratitude?: string | null
+          prayer?: string | null
+          review_date?: string
+          takeaway?: string | null
           updated_at?: string
           user_id?: string
         }
