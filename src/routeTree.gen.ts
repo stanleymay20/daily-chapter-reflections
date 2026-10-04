@@ -18,6 +18,8 @@ import { Route as SavedRouteImport } from './routes/saved'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as ApiGenerateStudyImageRouteImport } from './routes/api/generate-study-image'
 import { Route as ReadPassageRouteImport } from './routes/read.$passage'
+import { Route as ApiStudyVideoStartRouteImport } from './routes/api/study-video/start'
+import { Route as ApiStudyVideoStatusRouteImport } from './routes/api/study-video/status'
 import { Route as LovableEmailAuthPreviewRouteImport } from './routes/lovable/email/auth/preview'
 import { Route as LovableEmailAuthWebhookRouteImport } from './routes/lovable/email/auth/webhook'
 
@@ -66,6 +68,16 @@ const ReadPassageRoute = ReadPassageRouteImport.update({
   path: '/read/$passage',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiStudyVideoStartRoute = ApiStudyVideoStartRouteImport.update({
+  id: '/api/study-video/start',
+  path: '/api/study-video/start',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiStudyVideoStatusRoute = ApiStudyVideoStatusRouteImport.update({
+  id: '/api/study-video/status',
+  path: '/api/study-video/status',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LovableEmailAuthPreviewRoute = LovableEmailAuthPreviewRouteImport.update({
   id: '/lovable/email/auth/preview',
   path: '/lovable/email/auth/preview',
@@ -87,6 +99,8 @@ export interface FileRoutesByFullPath {
   '/settings': typeof SettingsRoute
   '/api/generate-study-image': typeof ApiGenerateStudyImageRoute
   '/read/$passage': typeof ReadPassageRoute
+  '/api/study-video/start': typeof ApiStudyVideoStartRoute
+  '/api/study-video/status': typeof ApiStudyVideoStatusRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
 }
@@ -100,6 +114,8 @@ export interface FileRoutesByTo {
   '/settings': typeof SettingsRoute
   '/api/generate-study-image': typeof ApiGenerateStudyImageRoute
   '/read/$passage': typeof ReadPassageRoute
+  '/api/study-video/start': typeof ApiStudyVideoStartRoute
+  '/api/study-video/status': typeof ApiStudyVideoStatusRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
 }
@@ -114,6 +130,8 @@ export interface FileRoutesById {
   '/settings': typeof SettingsRoute
   '/api/generate-study-image': typeof ApiGenerateStudyImageRoute
   '/read/$passage': typeof ReadPassageRoute
+  '/api/study-video/start': typeof ApiStudyVideoStartRoute
+  '/api/study-video/status': typeof ApiStudyVideoStatusRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
 }
@@ -129,6 +147,8 @@ export interface FileRouteTypes {
     | '/settings'
     | '/api/generate-study-image'
     | '/read/$passage'
+    | '/api/study-video/start'
+    | '/api/study-video/status'
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
   fileRoutesByTo: FileRoutesByTo
@@ -142,6 +162,8 @@ export interface FileRouteTypes {
     | '/settings'
     | '/api/generate-study-image'
     | '/read/$passage'
+    | '/api/study-video/start'
+    | '/api/study-video/status'
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
   id:
@@ -155,6 +177,8 @@ export interface FileRouteTypes {
     | '/settings'
     | '/api/generate-study-image'
     | '/read/$passage'
+    | '/api/study-video/start'
+    | '/api/study-video/status'
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
   fileRoutesById: FileRoutesById
@@ -169,6 +193,8 @@ export interface RootRouteChildren {
   SettingsRoute: typeof SettingsRoute
   ApiGenerateStudyImageRoute: typeof ApiGenerateStudyImageRoute
   ReadPassageRoute: typeof ReadPassageRoute
+  ApiStudyVideoStartRoute: typeof ApiStudyVideoStartRoute
+  ApiStudyVideoStatusRoute: typeof ApiStudyVideoStatusRoute
   LovableEmailAuthPreviewRoute: typeof LovableEmailAuthPreviewRoute
   LovableEmailAuthWebhookRoute: typeof LovableEmailAuthWebhookRoute
 }
@@ -238,6 +264,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ReadPassageRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/study-video/start': {
+      id: '/api/study-video/start'
+      path: '/api/study-video/start'
+      fullPath: '/api/study-video/start'
+      preLoaderRoute: typeof ApiStudyVideoStartRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/study-video/status': {
+      id: '/api/study-video/status'
+      path: '/api/study-video/status'
+      fullPath: '/api/study-video/status'
+      preLoaderRoute: typeof ApiStudyVideoStatusRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/lovable/email/auth/preview': {
       id: '/lovable/email/auth/preview'
       path: '/lovable/email/auth/preview'
@@ -265,6 +305,8 @@ const rootRouteChildren: RootRouteChildren = {
   SettingsRoute: SettingsRoute,
   ApiGenerateStudyImageRoute: ApiGenerateStudyImageRoute,
   ReadPassageRoute: ReadPassageRoute,
+  ApiStudyVideoStartRoute: ApiStudyVideoStartRoute,
+  ApiStudyVideoStatusRoute: ApiStudyVideoStatusRoute,
   LovableEmailAuthPreviewRoute: LovableEmailAuthPreviewRoute,
   LovableEmailAuthWebhookRoute: LovableEmailAuthWebhookRoute,
 }

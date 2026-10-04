@@ -428,6 +428,69 @@ export type Database = {
         }
         Relationships: []
       }
+      study_videos: {
+        Row: {
+          created_at: string
+          duration_seconds: number
+          guide_hash: string
+          id: string
+          last_error: string | null
+          model: string
+          passage: string
+          progress: number | null
+          prompt_version: string
+          provider: string
+          provider_job_id: string | null
+          scenes: Json
+          selected_at: string
+          status: string
+          storage_path: string | null
+          updated_at: string
+          user_id: string
+          version_id: number
+        }
+        Insert: {
+          created_at?: string
+          duration_seconds?: number
+          guide_hash: string
+          id?: string
+          last_error?: string | null
+          model: string
+          passage: string
+          progress?: number | null
+          prompt_version: string
+          provider?: string
+          provider_job_id?: string | null
+          scenes?: Json
+          selected_at?: string
+          status?: string
+          storage_path?: string | null
+          updated_at?: string
+          user_id: string
+          version_id: number
+        }
+        Update: {
+          created_at?: string
+          duration_seconds?: number
+          guide_hash?: string
+          id?: string
+          last_error?: string | null
+          model?: string
+          passage?: string
+          progress?: number | null
+          prompt_version?: string
+          provider?: string
+          provider_job_id?: string | null
+          scenes?: Json
+          selected_at?: string
+          status?: string
+          storage_path?: string | null
+          updated_at?: string
+          user_id?: string
+          version_id?: number
+        }
+        Relationships: []
+      }
       user_settings: {
         Row: {
           settings: Json
@@ -497,6 +560,16 @@ export type Database = {
       reserve_study_image_job: {
         Args: {
           p_guide_hash: string
+          p_passage: string
+          p_prompt_version: string
+          p_version_id: number
+        }
+        Returns: Json
+      }
+      reserve_study_video_job: {
+        Args: {
+          p_guide_hash: string
+          p_model: string
           p_passage: string
           p_prompt_version: string
           p_version_id: number
