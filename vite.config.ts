@@ -12,4 +12,10 @@ export default defineConfig({
     // nitro/vite builds from this
     server: { entry: "server" },
   },
+  // Pre-bundle deps Vite otherwise discovers late; a late re-optimization reloads with mismatched React chunks (blank screen).
+  vite: {
+    optimizeDeps: {
+      include: ["@tanstack/router-core", "@tanstack/router-core/isServer", "@tanstack/router-core/ssr/client", "seroval"],
+    },
+  },
 });
