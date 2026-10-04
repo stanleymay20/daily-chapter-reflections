@@ -98,7 +98,6 @@ export function useStudyVisuals(args: {
           setPreviewFinal(isFinal);
           if (isFinal) finalDataUrl = dataUrl;
         },
-        undefined,
         controller.signal,
       );
 
