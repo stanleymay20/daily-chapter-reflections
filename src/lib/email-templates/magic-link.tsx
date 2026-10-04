@@ -13,31 +13,20 @@ import {
 
 interface MagicLinkEmailProps {
   siteName: string
-  confirmationUrl: string
+  token: string
 }
 
-export const MagicLinkEmail = ({
-  siteName,
-  confirmationUrl,
-}: MagicLinkEmailProps) => (
+// Code-only on purpose: the app's installed version signs in by typing this code, never via a link.
+export const MagicLinkEmail = ({ siteName, token }: MagicLinkEmailProps) => (
   <Html lang="en" dir="ltr">
-    <Head>
-      <style>{darkModeCss}</style>
-    </Head>
-    <Preview>Your login link for {siteName}</Preview>
+    <Head />
+    <Preview>Your {siteName} sign-in code: {token}</Preview>
     <Body style={main}>
       <Container style={container}>
-        <Heading style={h1}>Your login link</Heading>
-        <Text style={text}>
-          Click the button below to log in to {siteName}. This link will expire
-          shortly.
-        </Text>
-        <Button className="dm-btn" style={button} href={confirmationUrl}>
-          Log In
-        </Button>
-        <Text style={footer}>
-          If you didn't request this link, you can safely ignore this email.
-        </Text>
+        <Heading style={h1}>Your sign-in code</Heading>
+        <Text style={text}>Enter this code in {siteName} to sign in. It expires shortly.</Text>
+        <Text style={code}>{token}</Text>
+        <Text style={footer}>If you didn't request this code, you can safely ignore this email.</Text>
       </Container>
     </Body>
   </Html>
@@ -59,6 +48,7 @@ const text = {
   lineHeight: '1.5',
   margin: '0 0 25px',
 }
+const code = { fontSize: '32px', fontWeight: 'bold' as const, letterSpacing: '8px', color: '#000000', fontFamily: 'monospace', margin: '0 0 25px' }
 const button = {
   backgroundColor: '#000000',
   color: '#ffffff',
