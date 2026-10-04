@@ -1,7 +1,6 @@
 import * as React from 'react'
 import { createAuthEmailHandler } from '@lovable.dev/email-js'
 import { createFileRoute } from '@tanstack/react-router'
-import { SignupEmail } from '@/lib/email-templates/signup'
 import { InviteEmail } from '@/lib/email-templates/invite'
 import { MagicLinkEmail } from '@/lib/email-templates/magic-link'
 import { RecoveryEmail } from '@/lib/email-templates/recovery'
@@ -28,13 +27,12 @@ export const Route = createFileRoute("/lovable/email/auth/webhook")({
           sendUrl: process.env['LOVABLE_SEND_URL'],
           emails: {
             signup: {
-              subject: 'Confirm your email',
+              // New accounts are created by the in-app code sign-in, so they get the same 6-digit code email.
+              subject: 'Your sign-in code',
               render: (data) =>
-                React.createElement(SignupEmail, {
+                React.createElement(MagicLinkEmail, {
                   siteName: SITE_NAME,
-                  siteUrl: SITE_URL,
-                  recipient: data.email,
-                  confirmationUrl: data.url,
+                  token: data.token ?? '',
                 }),
             },
             invite: {
