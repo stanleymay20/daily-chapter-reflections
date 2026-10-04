@@ -22,8 +22,25 @@ export const Route=createRootRouteWithContext<{queryClient:QueryClient}>()({
 
 function RootShell({children}:{children:ReactNode}){return <html lang="en"><head><HeadContent/></head><body>{children}<Scripts/></body></html>}
 
+// After a new deploy or restart the browser can request script chunks that no
+// longer exist; "Importing a module script failed" then blanks the page. One
+// automatic reload fetches the fresh index and heals it — reload once only, so
+// a genuine failure cannot loop.
+function recoverFailedModuleLoad(){
+  const reloadKey="app:module-reload";
+  const fail=(e:ErrorEvent)=>{
+    if(sessionStorage.getItem(reloadKey))return;
+    if(!/Importing a module script failed|Failed to fetch dynamically imported module|error loading dynamically imported module/i.test(e.message))return;
+    sessionStorage.setItem(reloadKey,String(Date.now()));
+    window.location.reload();
+  };
+  window.addEventListener("error",fail);
+  return()=>window.removeEventListener("error",fail);
+}
+
 function RootComponent(){
   const {queryClient}=Route.useRouteContext();
   useEffect(()=>{const s=loadSettings();document.documentElement.dataset["theme"]=s.theme;},[]);
+  useEffect(()=>recoverFailedModuleLoad(),[]);
   return <QueryClientProvider client={queryClient}><Outlet/><AppNav/></QueryClientProvider>;
 }
