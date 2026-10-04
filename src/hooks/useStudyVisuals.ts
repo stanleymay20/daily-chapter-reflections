@@ -14,7 +14,7 @@ import { streamImage } from "@/lib/stream-image";
 
 export function useStudyVisuals(args: {
   passage: string;
-  versionId?: string;
+  versionId: string | undefined;
   label: string;
   insights: StudyInsights | null;
 }) {
