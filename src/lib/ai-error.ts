@@ -9,8 +9,17 @@ export const AI_MESSAGES = {
 
 export type AiErrorKind = "auth" | "quota" | "retry";
 
+/**
+ * `quota` is the Reader's terminal/non-retry presentation bucket. It includes safe configuration,
+ * workspace-credit and policy messages so the UI does not hide actionable causes behind a generic
+ * transient-error message. Provider 429/5xx failures remain retryable.
+ */
 export function aiErrorKind(message: string): AiErrorKind {
   if (message === AI_MESSAGES.signIn || message === AI_MESSAGES.sessionExpired || /sign in/i.test(message)) return "auth";
-  if (message === AI_MESSAGES.dayLimit || message === AI_MESSAGES.hourLimit || /limit|this hour/i.test(message)) return "quota";
+  if (
+    message === AI_MESSAGES.dayLimit ||
+    message === AI_MESSAGES.hourLimit ||
+    /limit|this hour|credits? (?:are )?exhausted|workspace policy|not configured|configured ai model is unavailable/i.test(message)
+  ) return "quota";
   return "retry";
 }
