@@ -349,6 +349,10 @@ describe("schema, security and migration parity", () => {
 
   it("both migration copies are byte-identical", () => {
     expect(supa).toBe(drizzle);
+    const g1 = src("../../../drizzle/migrations/0007_study_videos_column_update_grants.sql");
+    expect(src("../../../supabase/migrations/20261004233100_study_videos_column_update_grants.sql")).toBe(g1);
+    expect(g1).toContain("revoke update on public.study_videos from authenticated;");
+    expect(g1).not.toMatch(/call_budget|call_usage|plan_hash|kind|study_mode/);
   });
 
   it("keeps a dedicated video quota and derives identity from auth.uid()", () => {
