@@ -233,7 +233,7 @@ export type PlanIssue = { scene: number | null; code: string; detail: string };
 export function groundingIssues(plan: SequencePlan, sources: GroundingSources, ctx: { reference: string; chapterText: string }): PlanIssue[] {
   const issues: PlanIssue[] = [];
   const chapterNorm = normalizeQuote(ctx.chapterText);
-  const refWords = words(ctx.reference);
+  const refWords: string[] = words(ctx.reference);
   plan.scenes.forEach((scene, i) => {
     const push = (code: string, detail: string) => issues.push({ scene: i, code, detail });
     const refs = scene.sourceRefs.filter((id) => sources[id]);
@@ -456,13 +456,14 @@ export function buildManifest(title: string, scenes: Array<Omit<ManifestScene, "
       throw new Error(`Scene ${s.index + 1} has no reliable narration duration.`);
     }
     if (s.ttsText !== s.narration) throw new Error(`Scene ${s.index + 1} captions do not match the narrated text.`);
+    const seconds = s.narrationSeconds;
     const start = t;
-    const end = t + s.narrationSeconds;
+    const end = t + seconds;
     const sentences = s.ttsText.match(/[^.!?]+[.!?]+["”’]?|[^.!?]+$/g)?.map((x) => x.trim()).filter(Boolean) ?? [s.ttsText];
     const chars = sentences.reduce((n, x) => n + x.length, 0) || 1;
     let c = start;
     sentences.forEach((text, i) => {
-      const span = (text.length / chars) * s.narrationSeconds;
+      const span = (text.length / chars) * seconds;
       const cueEnd = i === sentences.length - 1 ? end : c + span;
       cues.push({ start: round3(c), end: round3(cueEnd), text, scene: s.index });
       c = cueEnd;
