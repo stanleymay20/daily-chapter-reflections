@@ -522,8 +522,9 @@ export async function advanceSequence(ctx: EngineContext, videoId: string): Prom
   }
 
   if (row.stage === "finalizing") {
+    const finalScenes = await ctx.db.loadScenes(row.id);
     try {
-      const manifest = buildManifest(row.plan_title ?? ctx.reference, scenes.map((s) => ({
+      const manifest = buildManifest(row.plan_title ?? ctx.reference, finalScenes.map((s) => ({
         index: s.scene_index, role: s.role, visualKind: s.visual_kind, claimType: s.claim_type, narration: s.narration,
         visualBrief: s.visual_brief, scriptureQuote: s.scripture_quote, sourceRefs: s.source_refs,
         narrationSeconds: s.narration_seconds, ttsText: s.tts_text ?? "",
