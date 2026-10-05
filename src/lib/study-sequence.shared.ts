@@ -233,13 +233,14 @@ export type PlanIssue = { scene: number | null; code: string; detail: string };
 export function groundingIssues(plan: SequencePlan, sources: GroundingSources, ctx: { reference: string; chapterText: string }): PlanIssue[] {
   const issues: PlanIssue[] = [];
   const chapterNorm = normalizeQuote(ctx.chapterText);
-  const refWords = words(ctx.reference);
+  const refWords: string[] = words(ctx.reference);
   plan.scenes.forEach((scene, i) => {
     const push = (code: string, detail: string) => issues.push({ scene: i, code, detail });
     const refs = scene.sourceRefs.filter((id) => sources[id]);
     if (scene.sourceRefs.length !== refs.length) push("unknown_ref", "Scene cites a guide source that does not exist.");
     if (!refs.length) { push("no_source", "Scene has no supporting guide source."); return; }
-    const support = `${refs.map((id) => sources[id]).join(" ")} ${ctx.reference}`;
+    const refText = refs.map((id) => sources[id]).join(" ");
+    const support = `${refText} ${ctx.reference}`;
     const supportLower = support.toLowerCase();
 
     // Quotations: only verbatim chapter text, short, mirrored in scriptureQuote so it is labeled as Scripture.
@@ -270,7 +271,7 @@ export function groundingIssues(plan: SequencePlan, sources: GroundingSources, c
       if (!support.includes(n)) push("unsupported_number", `The number ${n} is not in the cited guide sources.`);
     }
     if (CAUSAL.test(unquoted) && !CAUSAL.test(support) && scene.claimType === "chapter") push("unsupported_causal", "Causal claim is not stated in the cited sources.");
-    if (CHRONO.test(unquoted) && !CHRONO.test(support)) push("unsupported_chronology", "Date or chronology is not in the cited sources.");
+    if (CHRONO.test(unquoted.replace(ctx.reference, " ")) && !CHRONO.test(refText)) push("unsupported_chronology", "Date or chronology is not in the cited sources.");
 
     // Lexical support ratio by claim type.
     const stems = contentStems(unquoted);
@@ -455,13 +456,14 @@ export function buildManifest(title: string, scenes: Array<Omit<ManifestScene, "
       throw new Error(`Scene ${s.index + 1} has no reliable narration duration.`);
     }
     if (s.ttsText !== s.narration) throw new Error(`Scene ${s.index + 1} captions do not match the narrated text.`);
+    const seconds = s.narrationSeconds;
     const start = t;
-    const end = t + s.narrationSeconds;
+    const end = t + seconds;
     const sentences = s.ttsText.match(/[^.!?]+[.!?]+["”’]?|[^.!?]+$/g)?.map((x) => x.trim()).filter(Boolean) ?? [s.ttsText];
     const chars = sentences.reduce((n, x) => n + x.length, 0) || 1;
     let c = start;
     sentences.forEach((text, i) => {
-      const span = (text.length / chars) * s.narrationSeconds;
+      const span = (text.length / chars) * seconds;
       const cueEnd = i === sentences.length - 1 ? end : c + span;
       cues.push({ start: round3(c), end: round3(cueEnd), text, scene: s.index });
       c = cueEnd;

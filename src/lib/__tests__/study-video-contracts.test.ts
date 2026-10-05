@@ -99,15 +99,16 @@ describe("video aid security and cost contract", () => {
     expect(hook).not.toMatch(/useEffect\([^]*?createVideo\(\)/);
   });
 
-  it("labels the clip, never autoplays, offers native controls and scene descriptions", () => {
-    expect(component).toContain("STUDY_VIDEO_LABEL");
+  it("keeps v0 clips playable: labeled, native controls, no autoplay, scene descriptions", () => {
+    expect(component).toContain("SEQUENCE_LABEL");
     expect(STUDY_VIDEO_LABEL).toBe("AI-created interpretation · not Scripture");
-    expect(component).toContain("controls");
-    expect(component).toContain("playsInline");
-    expect(component).not.toMatch(/autoPlay/i);
-    expect(component).toContain('kind="captions"');
-    expect(component).toContain("Scene descriptions");
-    expect(component).toContain("not historical footage");
+    const legacy = component.slice(component.indexOf("function LegacyClip"), component.indexOf("export function StudyVideoAid"));
+    expect(legacy).toContain("controls");
+    expect(legacy).toContain("playsInline");
+    expect(legacy).not.toMatch(/autoPlay/i);
+    expect(legacy).toContain('kind="captions"');
+    expect(legacy).toContain("Scene descriptions");
+    expect(src("../../components/StudySequencePlayer.tsx")).toContain("not historical footage");
     expect(reader).toContain("<StudyVideoAid");
     expect(reader).toContain("Guide views · not generated media");
   });
