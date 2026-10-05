@@ -273,6 +273,7 @@ describe("pipeline engine (mocked providers)", () => {
   it("completes a quick study with exact provider-call counts and synced manifest", async () => {
     const h = harness();
     const r = await runToEnd(h);
+    expect(r.row.stage_error).toBeNull();
     expect(r.row.status).toBe("completed");
     expect(h.calls).toEqual({ json: 2, still: 2, clipCreate: 1, clipPoll: 1, speech: 5 });
     expect(h.video.call_usage).toEqual({ plan: 2, still: 2, clip: 1, tts: 5 });

@@ -239,7 +239,8 @@ export function groundingIssues(plan: SequencePlan, sources: GroundingSources, c
     const refs = scene.sourceRefs.filter((id) => sources[id]);
     if (scene.sourceRefs.length !== refs.length) push("unknown_ref", "Scene cites a guide source that does not exist.");
     if (!refs.length) { push("no_source", "Scene has no supporting guide source."); return; }
-    const support = `${refs.map((id) => sources[id]).join(" ")} ${ctx.reference}`;
+    const refText = refs.map((id) => sources[id]).join(" ");
+    const support = `${refText} ${ctx.reference}`;
     const supportLower = support.toLowerCase();
 
     // Quotations: only verbatim chapter text, short, mirrored in scriptureQuote so it is labeled as Scripture.
@@ -270,7 +271,7 @@ export function groundingIssues(plan: SequencePlan, sources: GroundingSources, c
       if (!support.includes(n)) push("unsupported_number", `The number ${n} is not in the cited guide sources.`);
     }
     if (CAUSAL.test(unquoted) && !CAUSAL.test(support) && scene.claimType === "chapter") push("unsupported_causal", "Causal claim is not stated in the cited sources.");
-    if (CHRONO.test(unquoted) && !CHRONO.test(support)) push("unsupported_chronology", "Date or chronology is not in the cited sources.");
+    if (CHRONO.test(unquoted.replace(ctx.reference, " ")) && !CHRONO.test(refText)) push("unsupported_chronology", "Date or chronology is not in the cited sources.");
 
     // Lexical support ratio by claim type.
     const stems = contentStems(unquoted);
