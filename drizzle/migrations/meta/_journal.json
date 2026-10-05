@@ -50,6 +50,13 @@
       "when": 1791156035890,
       "tag": "0006_study_video_sequences",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1791174797680,
+      "tag": "0007_study_videos_column_update_grants",
+      "breakpoints": true
     }
   ]
 }
