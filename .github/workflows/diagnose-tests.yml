@@ -1,0 +1,30 @@
+name: Diagnose tests
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  test-file:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        file:
+          - src/lib/__tests__/ai-access.behavior.test.ts
+          - src/lib/__tests__/ai-quota-contract.test.ts
+          - src/lib/__tests__/ai-guide-gateway.test.ts
+          - src/lib/__tests__/app.test.ts
+          - src/lib/__tests__/cloud-sync.test.ts
+          - src/lib/__tests__/email-otp.test.ts
+          - src/lib/__tests__/security-contracts.test.ts
+          - src/lib/__tests__/study-guide.test.ts
+          - src/lib/__tests__/study-media-contracts.test.ts
+          - src/lib/__tests__/study-sequence.test.ts
+          - src/lib/__tests__/study-video-contracts.test.ts
+          - src/lib/__tests__/ui-contracts.test.ts
+    steps:
+      - uses: actions/checkout@v5
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - run: bun test ${{ matrix.file }}
