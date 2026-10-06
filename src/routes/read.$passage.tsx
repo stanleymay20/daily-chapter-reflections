@@ -237,7 +237,7 @@ function ImageVersionStrip({versions,selectedId,disabled,onSelect}:{versions:Stu
 function AiErrorNotice({message,onRetry}:{message:string;onRetry:()=>void}){
   const kind=aiErrorKind(message);
   return <Card role="alert" className={`mt-4 p-4 text-sm ${kind==="retry"?"text-destructive":""}`}>
-    <p>{kind==="auth"?"Sign in to use AI study tools. Scripture stays available without an account.":kind==="quota"?message:"AI study tools are temporarily unavailable. Please try again in a moment."}</p>
+    <p>{kind==="auth"?"Sign in to use AI study tools. Scripture stays available without an account.":kind==="quota"||kind==="credits"?message:"AI study tools are temporarily unavailable. Please try again in a moment."}</p>
     {kind==="auth"?<Link to="/settings" className="mt-3 inline-flex"><Button size="sm" className="min-h-11">Sign in</Button></Link>:kind==="retry"?<Button size="sm" variant="outline" className="mt-3 min-h-11" onClick={onRetry}>Try again</Button>:null}
   </Card>;
 }

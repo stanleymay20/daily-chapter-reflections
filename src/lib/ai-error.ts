@@ -7,10 +7,11 @@ export const AI_MESSAGES = {
   hourLimit: "AI study tools have been used frequently this hour. Please wait a little and try again.",
 } as const;
 
-export type AiErrorKind = "auth" | "quota" | "retry";
+export type AiErrorKind = "credits" | "auth" | "quota" | "retry";
 
 export function aiErrorKind(message: string): AiErrorKind {
   if (message === AI_MESSAGES.signIn || message === AI_MESSAGES.sessionExpired || /sign in/i.test(message)) return "auth";
+  if (/credits|workspace policy/i.test(message)) return "credits";
   if (message === AI_MESSAGES.dayLimit || message === AI_MESSAGES.hourLimit || /limit|this hour/i.test(message)) return "quota";
   return "retry";
 }
