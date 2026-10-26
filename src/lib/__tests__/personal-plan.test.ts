@@ -53,7 +53,7 @@ describe("independent reader-chosen plans", () => {
     const last = { ...custom, chaptersPerDay: 10, books: [{ usfm: "PHM", fromChapter: 1 }], weekdays: [0,1,2,3,4,5,6] };
     expect(personalReadingsForDate("2026-10-26", last)).toHaveLength(1);
     expect(personalReadingsForDate("2026-10-27", last)).toHaveLength(0);
-    expect(personalReadingsForDate("2026-10-27", { ...last, repeat: true })).toHaveLength(10);
+    expect(personalReadingsForDate("2026-10-27", { ...last, repeat: true })).toHaveLength(1); // no repeated chapter on the same day
   });
 
   it("validates user book choices and chapter bounds", () => {

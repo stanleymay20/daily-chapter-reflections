@@ -89,7 +89,8 @@ export function personalReadingsForDate(date: string, configuration: PersonalPla
   if (!chapters.length) return [];
   const firstIndex = (studyDays - 1) * plan.chaptersPerDay;
   if (!plan.repeat && firstIndex >= chapters.length) return [];
-  return Array.from({ length: plan.chaptersPerDay }, (_, index) => {
+  // A daily checklist must not contain the same chapter twice, even when repeating a short plan.
+  return Array.from({ length: plan.repeat ? Math.min(plan.chaptersPerDay, chapters.length) : plan.chaptersPerDay }, (_, index) => {
     const absolute = firstIndex + index;
     return !plan.repeat && absolute >= chapters.length ? null : chapters[absolute % chapters.length]!;
   }).filter((chapter): chapter is ChapterRef => chapter !== null);
