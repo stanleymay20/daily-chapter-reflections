@@ -58,6 +58,7 @@ export function view(result: Pick<AdvanceResult, "row" | "scenes"> & Partial<Adv
     budget: row.call_budget,
     usage: row.call_usage,
     scenes: scenes.length,
+    issues: result.issues?.map(issue => ({ scene: issue.scene, code: issue.code, detail: issue.detail })) ?? [],
     visuals: { done: visualScenes.filter((s) => s.visual_status === "done").length, total: visualScenes.length, failed: count((s) => s.visual_status === "failed") },
     narration: { done: count((s) => s.narration_status === "done"), total: scenes.length, failed: count((s) => s.narration_status === "failed") },
     worked: result.worked ?? false,

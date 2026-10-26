@@ -156,6 +156,15 @@ describe("grounded plan contract", () => {
     expect(groundingIssues(p, sources, ctx).map((i) => i.code)).toContain("visual_specifics");
   });
 
+  it("does not confuse prohibition wording with requests for forbidden imagery", () => {
+    const allowed = goodPlan();
+    allowed.scenes[1]!.visualBrief = "Distant desert at dawn, no faces, without text or footage";
+    expect(groundingIssues(allowed, sources, ctx).map(i => i.code)).not.toContain("visual_specifics");
+    const disallowed = goodPlan();
+    disallowed.scenes[1]!.visualBrief = "Portrait close-up of Joseph with captions";
+    expect(groundingIssues(disallowed, sources, ctx).map(i => i.code)).toContain("visual_specifics");
+  });
+
   it("quality gate: arc, duplicates, caps, word budget, opening/closing, coverage", () => {
     const p = goodPlan();
     p.scenes[3] = { ...p.scenes[1]! };
@@ -333,13 +342,30 @@ describe("pipeline engine (mocked providers)", () => {
     expect(h.calls["still"]).toBe(0);
   });
 
+  it("repairs a rejected plan once and revalidates before generating assets", async () => {
+    const h = harness();
+    let generated = 0;
+    const original = h.engine.providers.json;
+    h.engine.providers.json = async (...args) => {
+      if (args[2] === "grounding_audit") return original(...args);
+      generated++;
+      if (generated === 1) return { ...goodPlan(), scenes: goodPlan().scenes.map((s, i) =>
+        i === 1 ? { ...s, visualBrief: "Close-up portrait of Joseph with subtitles" } : s) };
+      return goodPlan();
+    };
+    const result = await runToEnd(h);
+    expect(result.row.status).toBe("completed");
+    expect(generated).toBe(2);
+    expect(h.video.call_usage.plan).toBe(3); // draft, repair, independent audit
+  });
+
   it("rejects an ungrounded draft plan before any visual or narration spend", async () => {
     const h = harness();
     h.engine.providers.json = async () => ({ ...goodPlan(), scenes: goodPlan().scenes.map((s, i) => (i === 1 ? { ...s, narration: `${s.narration} Pharaoh rides a chariot through Memphis.` } : s)) });
     const r = await advanceSequence(h.engine, "v1");
     expect(r.row.status).toBe("failed");
     expect(r.issues?.some((i) => i.code === "unsupported_entity")).toBe(true);
-    expect(h.video.call_usage.plan).toBe(1);
+    expect(h.video.call_usage.plan).toBe(2); // rejected draft and one corrective call only
   });
 });
 

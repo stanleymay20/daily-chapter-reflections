@@ -12,6 +12,7 @@ import {
   canonicalPlan,
   clipPrompt,
   groundingCheckInstructions,
+  explainPlanIssues,
   narrationKey,
   nextStage,
   parseGroundingVerdict,
@@ -341,13 +342,13 @@ async function runPlanning(ctx: EngineContext, row: SequenceRow): Promise<Advanc
   }
   if (!plan) return { row: await fail(ctx, row, "The study plan had an invalid shape."), scenes: [], worked: true, waiting: false };
 
-  // Deterministic gates first — before any further spend. Nothing is repaired.
+  // Deterministic gates first — before any visual/TTS spend. At most one correction is allowed.
   const issues = validatePlan(plan, mode, sources, { reference: ctx.reference, chapterText });
   if (issues.length) {
     // One bounded repair pass using the existing planning-call allowance.
     // Never bypass deterministic validation or the subsequent semantic audit.
     if (!(await ctx.db.consumeCall(row.id, "plan"))) {
-      return { row: await fail(ctx, row, "The draft plan failed validation and the planning call budget is exhausted."), scenes: [], worked: true, waiting: false, issues };
+      return { row: await fail(ctx, row, `The draft plan failed validation and the planning call budget is exhausted. ${explainPlanIssues(issues)}`), scenes: [], worked: true, waiting: false, issues };
     }
     try {
       const feedback = issues.slice(0, 24).map((issue) =>
@@ -355,7 +356,7 @@ async function runPlanning(ctx: EngineContext, row: SequenceRow): Promise<Advanc
       ).join("\n");
       const repaired = parsePlan(await ctx.providers.json(
         planInstructions(mode, ctx.reference) +
-          "\nREPAIR TASK: Revise the supplied draft to resolve EVERY validation issue. Keep all narration strictly supported by cited sources. Use abstract, nonliteral visual briefs without faces, footage, maps, captions, or text. Do not invent facts, quotes, or dialogue. Return the complete corrected plan in the same JSON schema.",
+          "\nREPAIR TASK: Revise the entire draft to resolve EVERY issue, including weak support. Narration must closely paraphrase ONLY cited guide sources. Describe visualBrief using POSITIVE allowed imagery only (abstract landscapes, light, texture, silhouettes); omit all forbidden terms, including phrases like no faces or no text. Never invent events, cause, people, chronology, quotations or dialogue. Preserve word budget and event order. The full deterministic and independent semantic audits must still pass. Return corrected JSON in the same schema.",
         `${input}\n\nREJECTED DRAFT:\n${JSON.stringify(plan)}\n\nVALIDATION ISSUES:\n${feedback}`,
         "study_sequence_plan",
         PLAN_JSON_SCHEMA,
@@ -368,7 +369,7 @@ async function runPlanning(ctx: EngineContext, row: SequenceRow): Promise<Advanc
     }
     const remaining = validatePlan(plan, mode, sources, { reference: ctx.reference, chapterText });
     if (remaining.length) {
-      return { row: await fail(ctx, row, `The repaired plan still failed grounding and quality checks (${remaining.slice(0, 4).map((i) => i.detail).join(" ")})`), scenes: [], worked: true, waiting: false, issues: remaining };
+      return { row: await fail(ctx, row, `The repaired plan still has issues. ${explainPlanIssues(remaining)}`), scenes: [], worked: true, waiting: false, issues: remaining };
     }
   }
 
@@ -382,7 +383,7 @@ async function runPlanning(ctx: EngineContext, row: SequenceRow): Promise<Advanc
     return { row: await fail(ctx, row, safeError(error, "The grounding check could not run.")), scenes: [], worked: true, waiting: false };
   }
   if (!verdict) return { row: await fail(ctx, row, "The grounding check returned an incomplete audit."), scenes: [], worked: true, waiting: false };
-  if (verdict.length) return { row: await fail(ctx, row, `Some scenes were not supported by the saved guide (${verdict.slice(0, 3).map((v) => v.detail).join(" ")})`), scenes: [], worked: true, waiting: false, issues: verdict };
+  if (verdict.length) return { row: await fail(ctx, row, `The grounding audit rejected claims. ${explainPlanIssues(verdict)}`), scenes: [], worked: true, waiting: false, issues: verdict };
 
   const rows = await Promise.all(plan.scenes.map(async (s, index) => {
     const needsVisual = s.visualKind === "still" || s.visualKind === "clip";

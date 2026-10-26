@@ -284,7 +284,13 @@ export function groundingIssues(plan: SequencePlan, sources: GroundingSources, c
     if (scene.claimType === "uncertain" && !HEDGES.test(unquoted)) push("unlabeled_uncertainty", "Uncertain claim is not worded as uncertain.");
 
     // Visual integrity.
-    if (VISUAL_BANNED.test(scene.visualBrief)) push("visual_specifics", "Visual brief asks for faces, footage, text or other disallowed specifics.");
+    // A prohibition such as "no faces" does not request a face. Strip only explicit
+    // negative clauses; affirmative requests for portraits, text, footage etc. still fail.
+    const positiveVisual = scene.visualBrief.replace(
+      /\b(?:no|without|avoid|exclude|never show|do not show)\s+(?:(?:any|visible|identifiable|on-screen)\s+)?(?:faces?|portraits?|text|captions?|letters?|subtitles?|footage|photographs?|logos?)(?:\s+(?:or|and)\s+(?:faces?|portraits?|text|captions?|letters?|subtitles?|footage|photographs?|logos?))?/gi,
+      "",
+    );
+    if (VISUAL_BANNED.test(positiveVisual)) push("visual_specifics", "Visual brief requests disallowed faces, footage or text.");
     if (DIVINE.test(scene.visualBrief) && !SYMBOLIC.test(scene.visualBrief)) push("divine_depiction", "Divine presence must be symbolic (light, cloud, stillness), not a literal figure.");
   });
   return issues;
@@ -532,7 +538,17 @@ Rules (a validator rejects any violation; nothing is repaired):
 - claimType: "chapter" for what the chapter states, "context" for guide background, "uncertain" for interpretation — word uncertain claims with "may", "perhaps" or "likely".
 - Never write dialogue or first-person speech for God, Jesus, prophets or any character. No "he said:". No "I", "me", "my".
 - A Scripture quotation is optional, at most 25 words, copied verbatim from CHAPTER TEXT, wrapped in double quotes in narration and copied exactly into scriptureQuote. Otherwise scriptureQuote is null and narration has no quotation marks.
-- visualBrief: restrained, painterly, symbolic or environmental imagery. Figures distant or in silhouette, no faces, no text, no maps, never "footage". Divine presence only as light, cloud or stillness. Title/closing briefs may be short.`;
+- visualBrief: describe only allowed POSITIVE visual content: abstract landscapes, light, texture, distant silhouettes. Do not include prohibited nouns anywhere in the brief, even as negations such as "no faces" or "no text". Never specify an unsupported physical detail. The image provider receives separate exclusion rules. Divine presence only as symbolic light, clouds or stillness. Title/closing briefs may be short.`;
+}
+
+/** Safe, short scene-specific diagnostics rather than repeated generic failures. */
+export function explainPlanIssues(issues: PlanIssue[]): string {
+  const unique = new Set<string>();
+  for (const issue of issues) {
+    unique.add(`${issue.scene === null ? "Plan" : `Scene ${issue.scene + 1}`} [${issue.code}]: ${issue.detail}`);
+    if (unique.size === 5) break;
+  }
+  return [...unique].join(" ");
 }
 
 export function groundingCheckInstructions() {
