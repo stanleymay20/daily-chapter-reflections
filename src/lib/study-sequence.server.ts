@@ -343,7 +343,34 @@ async function runPlanning(ctx: EngineContext, row: SequenceRow): Promise<Advanc
 
   // Deterministic gates first — before any further spend. Nothing is repaired.
   const issues = validatePlan(plan, mode, sources, { reference: ctx.reference, chapterText });
-  if (issues.length) return { row: await fail(ctx, row, `The draft plan did not pass grounding and quality checks (${issues.slice(0, 4).map((i) => i.detail).join(" ")})`), scenes: [], worked: true, waiting: false, issues };
+  if (issues.length) {
+    // One bounded repair pass using the existing planning-call allowance.
+    // Never bypass deterministic validation or the subsequent semantic audit.
+    if (!(await ctx.db.consumeCall(row.id, "plan"))) {
+      return { row: await fail(ctx, row, "The draft plan failed validation and the planning call budget is exhausted."), scenes: [], worked: true, waiting: false, issues };
+    }
+    try {
+      const feedback = issues.slice(0, 24).map((issue) =>
+        `scene=${issue.scene === null ? "plan" : issue.scene} code=${issue.code}: ${issue.detail}`
+      ).join("\n");
+      const repaired = parsePlan(await ctx.providers.json(
+        planInstructions(mode, ctx.reference) +
+          "\nREPAIR TASK: Revise the supplied draft to resolve EVERY validation issue. Keep all narration strictly supported by cited sources. Use abstract, nonliteral visual briefs without faces, footage, maps, captions, or text. Do not invent facts, quotes, or dialogue. Return the complete corrected plan in the same JSON schema.",
+        `${input}\n\nREJECTED DRAFT:\n${JSON.stringify(plan)}\n\nVALIDATION ISSUES:\n${feedback}`,
+        "study_sequence_plan",
+        PLAN_JSON_SCHEMA,
+        ctx.signal,
+      ));
+      if (!repaired) throw new Error("Repair response had an invalid shape.");
+      plan = repaired;
+    } catch (error) {
+      return { row: await fail(ctx, row, safeError(error, "The study plan could not be repaired.")), scenes: [], worked: true, waiting: false, issues };
+    }
+    const remaining = validatePlan(plan, mode, sources, { reference: ctx.reference, chapterText });
+    if (remaining.length) {
+      return { row: await fail(ctx, row, `The repaired plan still failed grounding and quality checks (${remaining.slice(0, 4).map((i) => i.detail).join(" ")})`), scenes: [], worked: true, waiting: false, issues: remaining };
+    }
+  }
 
   // Bounded semantic entailment audit: one call, fail closed on incomplete or negative verdicts.
   if (!(await ctx.db.consumeCall(row.id, "plan"))) return { row: await fail(ctx, row, "This generation reached its planning call limit."), scenes: [], worked: true, waiting: false };
