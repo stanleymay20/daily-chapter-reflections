@@ -46,7 +46,7 @@ describe("independent reader-chosen plans", () => {
     expect(personalReadingsForDate("2026-10-31", custom)).toEqual([]);
     expect(personalReadingsForDate("2026-11-01", custom)).toEqual([]);
     expect(personalReadingsForDate("2026-11-02", custom).map(c => passageId(c.usfm, c.chapter)))
-      .toEqual(["MAT.17", "MAT.18", "MAT.19"]);
+      .toEqual(["MAT.14", "MAT.15", "MAT.16"]);
   });
 
   it("stops at the last chapter unless the reader requests repetition", () => {
