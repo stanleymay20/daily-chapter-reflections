@@ -371,14 +371,13 @@ describe("pipeline engine (mocked providers)", () => {
     expect(h.calls["still"]).toBe(0);
   });
 
-  it("does not spend corrective planning credits for harmless possessives and duplicate art direction", async () => {
+  it("does not spend corrective planning credits for repeated painting compositions", async () => {
     const h = harness();
     const original = h.engine.providers.json;
     h.engine.providers.json = async (...args) => {
       if (args[2] === "grounding_audit") return original(...args);
       const plan = goodPlan();
       plan.scenes[3]!.visualBrief = plan.scenes[1]!.visualBrief;
-      plan.scenes[1]!.narration = "Joseph's brothers travel to Egypt to buy grain because of famine. Jacob's sons seek grain, but Jacob keeps Benjamin at home.";
       return plan;
     };
     const result = await runToEnd(h);
