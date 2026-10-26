@@ -427,28 +427,76 @@ async function verifyPlan(ctx: EngineContext, row: SequenceRow, scenes: SceneRow
   return (await planHashFor(scenes, row.plan_title)) === row.plan_hash;
 }
 
+/**
+ * A bounded retry is allowed only for transient storage errors after the AI
+ * provider has already delivered the bytes. Never repeats a paid AI call.
+ */
+async function saveAsset(db: Db, path: string, bytes: ArrayBuffer, contentType: string): Promise<void> {
+  try {
+    await db.upload(path, bytes, contentType);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "";
+    if (!/^asset upload failed \((?:429|500|502|503|504)\)$/.test(message)) throw error;
+    // Exactly one extra storage attempt, no provider regeneration.
+    await db.upload(path, bytes, contentType);
+  }
+}
+
+/**
+ * A provider's completed clip remains recoverable even if downloading or
+ * storing its output failed. A terminal provider failure clears the old ID;
+ * only an explicit retry can purchase a new motion clip.
+ */
+async function settleClip(ctx: EngineContext, row: SequenceRow, scene: SceneRow):
+  Promise<"done" | "waiting" | "failed"> {
+  const jobId = scene.visual_job_id;
+  if (!jobId) return "failed";
+  let job: ClipJob;
+  try {
+    job = await ctx.providers.clipPoll(jobId);
+  } catch {
+    // Temporary provider-status failure: keep the original paid job alive.
+    return "waiting";
+  }
+  if (job.status === "queued" || job.status === "in_progress") return "waiting";
+  if (job.status === "failed") {
+    const message = job.error?.code === "moderation_blocked"
+      ? "The motion provider's safety filter blocked this scene. Repeating the same prompt is not permitted."
+      : job.error?.message || "The motion provider could not complete this scene.";
+    await ctx.db.patchScene(scene.id, { visual_status: "failed", visual_job_id: null, last_error: message.slice(0, 1000) });
+    scene.visual_status = "failed";
+    scene.visual_job_id = null;
+    return "failed";
+  }
+  if (job.status !== "completed") return "waiting";
+  try {
+    const bytes = await ctx.providers.clipDownload(jobId);
+    await saveAsset(ctx.db, storagePath(row, scene.scene_index, "mp4"), bytes, "video/mp4");
+    const path = storagePath(row, scene.scene_index, "mp4");
+    await ctx.db.patchScene(scene.id, { visual_status: "done", visual_path: path, last_error: null });
+    scene.visual_status = "done";
+    scene.visual_path = path;
+    return "done";
+  } catch {
+    // Crucial: DO NOT lose jobId or trigger another costly clip generation.
+    const message = "The motion clip finished, but its file could not be delivered. Retry this stage to recover the same clip without another motion-generation charge.";
+    await ctx.db.patchScene(scene.id, { visual_status: "failed", last_error: message });
+    scene.visual_status = "failed";
+    return "failed";
+  }
+}
+
 async function runVisuals(ctx: EngineContext, row: SequenceRow, scenes: SceneRow[]): Promise<{ worked: boolean; waiting: boolean }> {
   // Even with an existing incomplete job, don't pay for pending scenes when an
   // earlier scene is failed. It must be explicitly retried first.
   if (scenes.some((s) => s.visual_status === "failed")) return { worked: false, waiting: false };
-  // Free: poll clips already started.
+  // Free: poll clips already started. Do not start another paid asset if
+  // any polled clip has failed. Preserve recoverable completed provider jobs.
   let waiting = false;
   for (const scene of scenes.filter((s) => s.visual_status === "generating" && s.visual_job_id)) {
-    try {
-      const job = await ctx.providers.clipPoll(scene.visual_job_id as string);
-      if (job.status === "completed") {
-        const path = storagePath(row, scene.scene_index, "mp4");
-        await ctx.db.upload(path, await ctx.providers.clipDownload(scene.visual_job_id as string), "video/mp4");
-        await ctx.db.patchScene(scene.id, { visual_status: "done", visual_path: path, last_error: null });
-        scene.visual_status = "done";
-      } else if (job.status === "failed") {
-        const message = job.error?.code === "moderation_blocked" ? "The provider's safety filter blocked this scene." : job.error?.message || "The motion scene could not be finished.";
-        await ctx.db.patchScene(scene.id, { visual_status: "failed", last_error: message.slice(0, 1000) });
-        scene.visual_status = "failed";
-      } else waiting = true;
-    } catch {
-      waiting = true; // transient poll failure: try again on the next explicit advance
-    }
+    const result = await settleClip(ctx, row, scene);
+    if (result === "failed") return { worked: false, waiting: false };
+    if (result === "waiting") waiting = true;
   }
 
   // Polling can reveal a failed in-flight clip. Stop before starting another
@@ -456,6 +504,17 @@ async function runVisuals(ctx: EngineContext, row: SequenceRow, scenes: SceneRow
   if (scenes.some((s) => s.visual_status === "failed")) return { worked: false, waiting: false };
   const next = scenes.find((s) => s.visual_status === "pending");
   if (!next) return { worked: false, waiting };
+
+  // This clip was already paid for, but delivery failed. Poll/download the
+  // existing provider job before any cache lookup or call-ledger increment.
+  if (next.visual_kind === "clip" && next.visual_job_id) {
+    const recovered = await settleClip(ctx, row, next);
+    if (recovered === "waiting") {
+      await ctx.db.patchScene(next.id, { visual_status: "generating" });
+      next.visual_status = "generating";
+    }
+    return { worked: recovered === "done", waiting: recovered === "waiting" };
+  }
   const kind: CallKind = next.visual_kind === "clip" ? "clip" : "still";
   const ext = kind === "clip" ? "mp4" : "png";
   const path = storagePath(row, next.scene_index, ext);
@@ -482,12 +541,23 @@ async function runVisuals(ctx: EngineContext, row: SequenceRow, scenes: SceneRow
   try {
     if (kind === "clip") {
       const job = await ctx.providers.clipCreate(clipPrompt(ctx.reference, planned), ctx.signal);
+      if (typeof job.id !== "string" || !job.id.trim() || job.id.length > 200) {
+        throw new Error("The motion provider did not return a recoverable job identifier.");
+      }
+      if (job.status === "failed") {
+        const message = job.error?.code === "moderation_blocked"
+          ? "The motion provider's safety filter blocked this scene. Repeating the same prompt is not permitted."
+          : job.error?.message || "The motion provider rejected this job.";
+        await ctx.db.patchScene(next.id, { visual_status: "failed", visual_job_id: null, last_error: message.slice(0, 1000) });
+        next.visual_status = "failed";
+        return { worked: true, waiting: false };
+      }
       await ctx.db.patchScene(next.id, { visual_status: "generating", visual_job_id: job.id, last_error: null });
       next.visual_status = "generating";
       return { worked: true, waiting: true };
     }
     const bytes = await ctx.providers.still(stillPrompt(ctx.reference, planned), ctx.signal);
-    await ctx.db.upload(path, bytes, "image/png");
+    await saveAsset(ctx.db, path, bytes, "image/png");
     await ctx.db.patchScene(next.id, { visual_status: "done", visual_path: path, last_error: null });
     next.visual_status = "done";
   } catch (error) {
@@ -522,7 +592,7 @@ async function runNarration(ctx: EngineContext, row: SequenceRow, scenes: SceneR
     const audio = await ctx.providers.speech(text, ctx.signal);
     const seconds = wavDurationSeconds(audio);
     if (!seconds) throw new Error("Narration audio length could not be measured.");
-    await ctx.db.upload(path, audio, "audio/wav");
+    await saveAsset(ctx.db, path, audio, "audio/wav");
     await ctx.db.patchScene(next.id, { narration_status: "done", narration_path: path, narration_seconds: seconds, tts_text: text, narration_key: key, last_error: null });
     next.narration_status = "done";
   } catch (error) {
@@ -596,7 +666,16 @@ export async function retrySequence(db: Db, videoId: string) {
   // Every genuine planning retry also needs a draft and mandatory grounding audit.
   if (planRetryBlock({ status: row.status, stage: row.stage, budget: row.call_budget, usage: row.call_usage })) return null;
   const scenes = await db.loadScenes(videoId);
-  if (row.stage === "visuals") for (const s of scenes.filter((x) => x.visual_status === "failed")) await db.patchScene(s.id, { visual_status: "pending", visual_job_id: null, last_error: null });
+  if (row.stage === "visuals") {
+    for (const s of scenes.filter((x) => x.visual_status === "failed")) {
+      if (/safety filter blocked/i.test(s.last_error ?? "")) return null;
+    }
+    for (const s of scenes.filter((x) => x.visual_status === "failed")) {
+      // Preserve IDs for completed clips whose download/upload failed. Terminal
+      // provider failures already cleared the ID and require an explicit paid retry.
+      await db.patchScene(s.id, { visual_status: "pending", visual_job_id: s.visual_kind === "clip" ? s.visual_job_id : null, last_error: null });
+    }
+  }
   if (row.stage === "narration") for (const s of scenes.filter((x) => x.narration_status === "failed")) await db.patchScene(s.id, { narration_status: "pending", last_error: null });
   return db.patchVideo(videoId, { status: "generating", stage_error: null, last_error: null }, { status: "eq.failed" });
 }
