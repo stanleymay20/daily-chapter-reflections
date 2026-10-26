@@ -499,9 +499,11 @@ async function runVisuals(ctx: EngineContext, row: SequenceRow, scenes: SceneRow
     if (result === "waiting") waiting = true;
   }
 
-  // Polling can reveal a failed in-flight clip. Stop before starting another
-  // paid still or motion scene, even if other pending scenes remain.
+  // A motion request already in flight may still fail provider moderation or
+  // asset delivery. Settle it before buying another scene. A normal in-progress
+  // poll does not consume a new provider-generation call.
   if (scenes.some((s) => s.visual_status === "failed")) return { worked: false, waiting: false };
+  if (waiting || scenes.some((s) => s.visual_status === "generating")) return { worked: false, waiting: true };
   const next = scenes.find((s) => s.visual_status === "pending");
   if (!next) return { worked: false, waiting };
 
