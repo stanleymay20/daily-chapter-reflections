@@ -93,6 +93,25 @@ export function groundingSources(guide: GuideForSources): GroundingSources {
   return out;
 }
 
+/**
+ * Free, deterministic guide preflight. Run BEFORE the daily video-start quota
+ * is charged. These are necessary inputs for our existing plan validation —
+ * no AI call or additional provider budget is consumed.
+ *
+ * Returning a readable error is better than selling a generation attempt that
+ * cannot possibly meet the minimum source-section quality requirements.
+ */
+export function guideReadinessIssue(mode: SequenceMode, sources: GroundingSources, chapterText: string): string | null {
+  if (!chapterText.trim()) return "The licensed Scripture chapter could not be retrieved. Please reload the chapter before making a video.";
+  const sourceIds = Object.keys(sources).filter((id) => typeof sources[id] === "string" && Boolean(sources[id]?.trim()));
+  const sections = new Set(sourceIds.map((id) => id.split(".")[0]));
+  const requiredSections = mode === "quick" ? 2 : 3;
+  if (sections.size < requiredSections) {
+    return `This chapter's saved study guide has only ${sections.size} usable source section${sections.size === 1 ? "" : "s"}; ${MODE_SPECS[mode].label} video requires at least ${requiredSections}. Regenerate the chapter's study insights, then try again. No video quota has been charged.`;
+  }
+  return null;
+}
+
 // ---------------------------------------------------------------- plan types
 
 export type SceneRole = "opening" | "content" | "closing";
@@ -490,13 +509,14 @@ export type SceneState = { visualKind: VisualKind; visualStatus: AssetStatus; na
 /** Pure transition: given scene states, which stage is next and whether the current one failed. */
 export function nextStage(stage: SequenceStage, scenes: SceneState[]): { stage: SequenceStage; failed: boolean } {
   if (stage === "visuals") {
-    if (scenes.some((s) => s.visualStatus === "pending" || s.visualStatus === "generating")) return { stage, failed: false };
+    // Fail fast: another costly scene must never start after a scene fails.
     if (scenes.some((s) => s.visualStatus === "failed")) return { stage, failed: true };
+    if (scenes.some((s) => s.visualStatus === "pending" || s.visualStatus === "generating")) return { stage, failed: false };
     return { stage: "narration", failed: false };
   }
   if (stage === "narration") {
-    if (scenes.some((s) => s.narrationStatus === "pending" || s.narrationStatus === "generating")) return { stage, failed: false };
     if (scenes.some((s) => s.narrationStatus === "failed")) return { stage, failed: true };
+    if (scenes.some((s) => s.narrationStatus === "pending" || s.narrationStatus === "generating")) return { stage, failed: false };
     return { stage: "finalizing", failed: false };
   }
   return { stage, failed: false };

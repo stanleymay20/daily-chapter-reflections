@@ -3,6 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { bearerOf, jobSchema, json, loadTrustedSources } from "@/lib/study-sequence-routes.server";
 import { AI_MESSAGES } from "@/lib/ai-error";
 import { ProviderError, restDb } from "@/lib/study-sequence.server";
+import { guideReadinessIssue } from "@/lib/study-sequence.shared";
 
 /**
  * Starts a reserved study sequence: verifies ownership, the immutable guide hash and the trusted
@@ -22,7 +23,13 @@ export const Route = createFileRoute("/api/study-video/sequence-start")({
         if (row.status !== "queued" || row.stage !== "planning") return json("This study video is not available to start.", 409);
 
         try {
-          await loadTrustedSources(auth, row.passage, row.version_id, row.guide_hash, request.signal);
+          const trusted = await loadTrustedSources(auth, row.passage, row.version_id, row.guide_hash, request.signal);
+          const readiness = guideReadinessIssue(row.study_mode ?? "quick", trusted.sources, trusted.chapterText);
+          if (readiness) {
+            // No quota or paid provider calls have been consumed.
+            await db.patchVideo(row.id, { status: "cancelled", stage_error: readiness }, { status: "eq.queued" }).catch(() => null);
+            return json(readiness, 422);
+          }
         } catch (error) {
           const message = error instanceof ProviderError ? error.message : "The saved chapter guide could not be verified.";
           // The job never started and was never authorized to spend provider

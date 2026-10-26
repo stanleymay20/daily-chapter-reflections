@@ -428,6 +428,9 @@ async function verifyPlan(ctx: EngineContext, row: SequenceRow, scenes: SceneRow
 }
 
 async function runVisuals(ctx: EngineContext, row: SequenceRow, scenes: SceneRow[]): Promise<{ worked: boolean; waiting: boolean }> {
+  // Even with an existing incomplete job, don't pay for pending scenes when an
+  // earlier scene is failed. It must be explicitly retried first.
+  if (scenes.some((s) => s.visual_status === "failed")) return { worked: false, waiting: false };
   // Free: poll clips already started.
   let waiting = false;
   for (const scene of scenes.filter((s) => s.visual_status === "generating" && s.visual_job_id)) {
@@ -448,6 +451,9 @@ async function runVisuals(ctx: EngineContext, row: SequenceRow, scenes: SceneRow
     }
   }
 
+  // Polling can reveal a failed in-flight clip. Stop before starting another
+  // paid still or motion scene, even if other pending scenes remain.
+  if (scenes.some((s) => s.visual_status === "failed")) return { worked: false, waiting: false };
   const next = scenes.find((s) => s.visual_status === "pending");
   if (!next) return { worked: false, waiting };
   const kind: CallKind = next.visual_kind === "clip" ? "clip" : "still";
@@ -492,6 +498,7 @@ async function runVisuals(ctx: EngineContext, row: SequenceRow, scenes: SceneRow
 }
 
 async function runNarration(ctx: EngineContext, row: SequenceRow, scenes: SceneRow[]): Promise<boolean> {
+  if (scenes.some((s) => s.narration_status === "failed")) return false;
   const next = scenes.find((s) => s.narration_status === "pending");
   if (!next) return false;
   const path = storagePath(row, next.scene_index, "wav");
@@ -554,8 +561,12 @@ export async function advanceSequence(ctx: EngineContext, videoId: string): Prom
   if (row.stage === "visuals" || row.stage === "narration") {
     const transition = nextStage(row.stage, sceneStates(scenes));
     if (transition.failed) {
-      const failedCount = scenes.filter((s) => (row!.stage === "visuals" ? s.visual_status : s.narration_status) === "failed").length;
-      return { row: await fail(ctx, row, `${failedCount} scene${failedCount === 1 ? "" : "s"} could not be completed in the ${row.stage} stage. Retry this stage to try only those scenes.`), scenes, worked, waiting: false };
+      const updatedScenes = await ctx.db.loadScenes(row.id);
+      const failedScenes = updatedScenes.filter((s) => (row!.stage === "visuals" ? s.visual_status : s.narration_status) === "failed");
+      const summary = failedScenes.slice(0, 2).map((s) =>
+        `Scene ${s.scene_index + 1}: ${s.last_error || "Generation failed."}`).join(" ");
+      const message = `${failedScenes.length} scene${failedScenes.length === 1 ? "" : "s"} failed in ${row.stage}. ${summary} Further provider calls are paused until you explicitly retry.`;
+      return { row: await fail(ctx, row, message), scenes: updatedScenes, worked, waiting: false };
     }
     if (transition.stage !== row.stage) row = (await ctx.db.patchVideo(row.id, { stage: transition.stage, stage_error: null }, { status: "eq.generating" })) ?? row;
   }

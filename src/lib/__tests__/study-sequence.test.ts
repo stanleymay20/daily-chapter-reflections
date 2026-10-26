@@ -12,6 +12,7 @@ import {
   canonicalizeVerbatimQuote,
   groundingIssues,
   groundingSources,
+  guideReadinessIssue,
   modeForStudy,
   planRetryBlock,
   nextStage,
@@ -107,6 +108,30 @@ describe("study modes and cost caps", () => {
     expect(canSpend({ clip: 2 }, { clip: 3 }, "clip")).toBe(true);
     expect(canSpend({ clip: 3 }, { clip: 3 }, "clip")).toBe(false);
     expect(canSpend({}, {}, "tts")).toBe(false);
+  });
+});
+
+describe("no-spend guide preflight", () => {
+  it("accepts guides with enough genuinely usable sections for the selected mode", () => {
+    expect(guideReadinessIssue("quick", sources, ctx.chapterText)).toBeNull();
+    expect(guideReadinessIssue("standard", sources, ctx.chapterText)).toBeNull();
+    expect(guideReadinessIssue("deep", sources, ctx.chapterText)).toBeNull();
+  });
+
+  it("rejects insufficient Standard/Deep source diversity BEFORE the video quota is charged", () => {
+    const thin = { summary: "A chapter summary", "eventSequence.0": "The first event" };
+    expect(guideReadinessIssue("quick", thin, "Verified Scripture text")).toBeNull();
+    expect(guideReadinessIssue("standard", thin, "Verified Scripture text")).toMatch(/only 2 usable source sections/);
+    expect(guideReadinessIssue("deep", thin, "Verified Scripture text")).toMatch(/requires at least 3/);
+    expect(guideReadinessIssue("quick", thin, " ")).toMatch(/could not be retrieved/);
+    expect(guideReadinessIssue("deep", { summary: " ", "themes.0": " " }, "Text")).toMatch(/only 0 usable/);
+  });
+
+  it("preflights trusted, server-loaded guide data before calling the quota RPC", () => {
+    const start = src("../../routes/api/study-video/sequence-start.ts");
+    expect(start.indexOf("guideReadinessIssue(")).toBeGreaterThan(-1);
+    expect(start.indexOf("guideReadinessIssue(")).toBeLessThan(start.indexOf('authorizeAiRequest(request, "video")'));
+    expect(start).toContain("return json(readiness, 422)");
   });
 });
 
@@ -275,6 +300,8 @@ describe("stage state machine", () => {
     const s = (v: string, n: string) => ({ visualKind: "still" as const, visualStatus: v as never, narrationStatus: n as never });
     expect(nextStage("visuals", [s("done", "pending"), s("generating", "pending")])).toEqual({ stage: "visuals", failed: false });
     expect(nextStage("visuals", [s("done", "pending"), s("failed", "pending")])).toEqual({ stage: "visuals", failed: true });
+    expect(nextStage("visuals", [s("failed", "pending"), s("pending", "pending")])).toEqual({ stage: "visuals", failed: true });
+    expect(nextStage("narration", [s("done", "failed"), s("pending", "pending")])).toEqual({ stage: "narration", failed: true });
     expect(nextStage("visuals", [s("done", "pending")])).toEqual({ stage: "narration", failed: false });
     expect(nextStage("narration", [s("done", "done")])).toEqual({ stage: "finalizing", failed: false });
     expect(retryReset([s("done", "pending"), s("failed", "pending")], "visuals").map((x) => x.visualStatus)).toEqual(["done", "pending"]);
@@ -481,6 +508,42 @@ describe("pipeline engine (mocked providers)", () => {
     const retry = await retrySequence(h.db, "v1");
     expect(retry?.status).toBe("generating");
     expect(h.video.call_usage.plan).toBe(2);
+  });
+
+  it("pauses all further costly visuals after the first failed scene until explicit retry", async () => {
+    const h = harness({ failStillOnce: true });
+    const failed = await runToEnd(h);
+    expect(failed.row.status).toBe("failed");
+    expect(failed.row.stage).toBe("visuals");
+    expect(failed.row.stage_error).toContain("Scene 2");
+    expect(h.calls["still"]).toBe(1);
+    expect(h.calls["clipCreate"]).toBe(0);
+    expect(h.calls["speech"]).toBe(0);
+    expect(h.scenes.some((scene) => scene.visual_status === "pending")).toBe(true);
+    await advanceSequence(h.engine, "v1");
+    expect(h.calls["still"]).toBe(1);
+  });
+
+  it("pauses all future narration calls after the first TTS failure", async () => {
+    const h = harness();
+    let failSpeech = true;
+    const original = h.engine.providers.speech;
+    h.engine.providers.speech = async (...args) => {
+      h.calls["speech"]! += 1;
+      if (failSpeech) { failSpeech = false; throw new Error("Provider narration unavailable"); }
+      // Don't double-count this wrapped speech in the test harness.
+      h.calls["speech"]! -= 1;
+      return original(...args);
+    };
+    const first = await runToEnd(h);
+    expect(first.row.stage).toBe("narration");
+    expect(first.row.status).toBe("failed");
+    expect(h.calls["speech"]).toBe(1);
+    expect(h.scenes.filter(s => s.narration_status === "pending")).toHaveLength(4);
+    await retrySequence(h.db, "v1");
+    const final = await runToEnd(h);
+    expect(final.row.status).toBe("completed");
+    expect(h.calls["speech"]).toBe(6);
   });
 
   it("explicit retry regenerates only the failed scene and never exceeds the ceiling", async () => {
