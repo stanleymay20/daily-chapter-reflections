@@ -14,6 +14,7 @@ import {
   groundingCheckInstructions,
   explainPlanIssues,
   differentiateVisualBriefs,
+  canonicalizeVerbatimQuote,
   narrationKey,
   nextStage,
   parseGroundingVerdict,
@@ -346,7 +347,7 @@ async function runPlanning(ctx: EngineContext, row: SequenceRow): Promise<Advanc
     return { row: await fail(ctx, row, safeError(error, "The study plan could not be created.")), scenes: [], worked: true, waiting: false };
   }
   if (!plan) return { row: await fail(ctx, row, "The study plan had an invalid shape."), scenes: [], worked: true, waiting: false };
-  plan = differentiateVisualBriefs(plan);
+  plan = differentiateVisualBriefs(canonicalizeVerbatimQuote(plan, chapterText));
 
   // Deterministic gates first — before any visual/TTS spend. At most one correction is allowed.
   const issues = validatePlan(plan, mode, sources, { reference: ctx.reference, chapterText });
@@ -372,7 +373,7 @@ async function runPlanning(ctx: EngineContext, row: SequenceRow): Promise<Advanc
         ctx.signal,
       ));
       if (!repaired) throw new Error("Repair response had an invalid shape.");
-      plan = differentiateVisualBriefs(repaired);
+      plan = differentiateVisualBriefs(canonicalizeVerbatimQuote(repaired, chapterText));
     } catch (error) {
       return { row: await fail(ctx, row, safeError(error, "The study plan could not be repaired.")), scenes: [], worked: true, waiting: false, issues };
     }

@@ -9,6 +9,7 @@ import {
   cuesToVtt,
   estimateFor,
   differentiateVisualBriefs,
+  canonicalizeVerbatimQuote,
   groundingIssues,
   groundingSources,
   modeForStudy,
@@ -136,6 +137,23 @@ describe("grounded plan contract", () => {
     const p = goodPlan();
     p.scenes[1]!.narration = "Joseph's brothers travel to Egypt. Jacob's sons seek grain. God's name is not quoted; the family's journey is described by the chapter guide.";
     expect(groundingIssues(p, sources, ctx).map(issue => issue.code)).not.toContain("dialogue");
+  });
+
+  it("canonicalizes only single-quoted verbatim Scripture, without rewriting speech", () => {
+    const p = goodPlan();
+    const scriptural = "And Joseph knew his brethren, but they knew not him.";
+    p.scenes[2]!.narration = p.scenes[2]!.narration.replace(`"${scriptural}"`, `‘${scriptural}’`);
+    p.scenes[2]!.scriptureQuote = null;
+    const canonical = canonicalizeVerbatimQuote(p, ctx.chapterText);
+    expect(canonical.scenes[2]!.narration).toContain(`"${scriptural}"`);
+    expect(canonical.scenes[2]!.scriptureQuote).toBe(scriptural);
+    expect(groundingIssues(canonical, sources, ctx).map(i => i.code)).not.toContain("dialogue");
+
+    const invented = goodPlan();
+    invented.scenes[1]!.narration += " ‘Joseph commanded his brothers to return in secret.’";
+    const untouched = canonicalizeVerbatimQuote(invented, ctx.chapterText);
+    expect(untouched.scenes[1]!.narration).toBe(invented.scenes[1]!.narration);
+    expect(groundingIssues(untouched, sources, ctx).map(i => i.code)).toContain("dialogue");
   });
 
   it("still blocks actual dialogue in straight and curly single quotation marks", () => {

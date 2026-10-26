@@ -231,6 +231,33 @@ function hasSingleQuotedSpeech(text: string): boolean {
 }
 
 /**
+ * Repair typography only when a single-quoted phrase is exactly verified in the
+ * selected YouVersion chapter (25 words maximum). This never paraphrases,
+ * rewrites, or invents Scripture. Unsupported quoted speech stays untouched,
+ * and the existing dialogue/quotation validator rejects it as before.
+ */
+export function canonicalizeVerbatimQuote(plan: SequencePlan, chapterText: string): SequencePlan {
+  const chapter = normalizeQuote(chapterText);
+  let changed = false;
+  const scenes = plan.scenes.map((scene) => {
+    if (quotedSpans(scene.narration).length) return scene; // no mixed quotation formats
+    const candidate = [...scene.narration.matchAll(/(?<![\p{L}\p{N}])['‘]([^'‘’\n]{3,}?)['’](?![\p{L}\p{N}])/gu)];
+    if (candidate.length !== 1) return scene;
+    const match = candidate[0]!;
+    const literal = match[1] ?? "";
+    const normalized = normalizeQuote(literal);
+    if (!normalized || !chapter.includes(normalized) || wordCount(literal) > 25 ||
+        (scene.scriptureQuote && normalizeQuote(scene.scriptureQuote) !== normalized)) return scene;
+    changed = true;
+    return { ...scene,
+      scriptureQuote: literal,
+      narration: scene.narration.slice(0, match.index) + '"' + literal + '"' + scene.narration.slice(match.index! + match[0].length),
+    };
+  });
+  return changed ? { ...plan, scenes } : plan;
+}
+
+/**
  * Safely differentiate repeated illustration compositions without rewriting
  * Scripture, narration, sources or underlying historical claims.
  * Adds only painting/framing directions; unsupported factual imagery still fails
