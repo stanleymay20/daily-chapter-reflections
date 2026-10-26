@@ -52,8 +52,8 @@ export function StudyVideoAid({ sequence, legacy, label, poster }: { sequence: S
   const lastStep = step?.id === active?.id ? step : null;
   const retryBlock = active ? planRetryBlock({
     status: active.status, stage: active.stage,
-    budget: lastStep?.budget ?? active.budget,
-    usage: lastStep?.usage ?? active.usage,
+    budget: lastStep?.budget ?? active.budget ?? null,
+    usage: lastStep?.usage ?? active.usage ?? null,
   }) : null;
 
   return (
