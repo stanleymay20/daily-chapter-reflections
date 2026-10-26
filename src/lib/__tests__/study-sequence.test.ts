@@ -335,7 +335,84 @@ async function runToEnd(h: ReturnType<typeof harness>, max = 40) {
   throw new Error("did not finish");
 }
 
+const deepEvents = [
+  "Jacob learns that Egypt has grain during the famine. He sends his sons to purchase food for the family while he waits at home in Canaan.",
+  "Jacob keeps Benjamin at home because he fears harm might come to his youngest son. The other brothers leave together and carry the family's urgent need for grain.",
+  "The ten brothers enter Egypt seeking the grain they cannot obtain in their own land. They reach the place where Joseph now governs the distribution of food.",
+  "Joseph holds authority over the grain supply in Egypt and receives the travelers who come to buy food. His brothers approach without realizing whom they will meet.",
+  "The brothers bow before Joseph as they request grain. Joseph recognizes the men from his own family, but they do not recognize the brother they once knew.",
+  "Joseph accuses the brothers of being spies when they explain where they have come from. They deny his accusation and describe their family and the youngest brother at home.",
+  "Joseph holds the brothers for three days while testing their story. He tells them that one must remain and the others must carry food home to their hungry households.",
+  "Simeon is kept behind in Egypt while the other brothers return with grain. They are instructed to bring Benjamin back as evidence that their account of the family is true.",
+  "On the journey home the brothers find their money in the sacks of grain. This discovery adds fear to their return, although the grain itself will help their family.",
+  "Back in Canaan the brothers report their encounter with the ruler in Egypt. Jacob mourns the loss of Joseph and Simeon and refuses to send Benjamin into danger.",
+];
+const deepVisuals = [
+  "Distant hills with winding paths beneath a pale dawn",
+  "Muted household landscape with an empty road beyond the courtyard",
+  "Distant small silhouettes approaching a wide grain market square",
+  "Quiet interior with small figures gathered near baskets of grain",
+  "A spacious hall with small figures bowing in soft muted light",
+  "Sparse geometric hall with long shadows and separated travelers",
+  "Still courtyard beneath low diffuse clouds and subdued morning light",
+  "Silent passageway with an open gate and several grain sacks",
+  "Layered empty sacks beside a pathway in late daylight",
+  "Wide landscape with travelers nearing a small family dwelling",
+];
+function deepTestPlan(): SequencePlan {
+  return {
+    title: "Genesis 42: Jacob's family and Joseph in Egypt",
+    scenes: [
+      {
+        role: "opening", visualKind: "title", claimType: "chapter", sourceRefs: ["summary"], scriptureQuote: null, visualBrief: "",
+        narration: "Genesis 42 follows Jacob's family through famine and a journey to Egypt for grain. Joseph receives his brothers there, although they do not yet recognize him.",
+      },
+      ...deepEvents.map((narration, index) => ({
+        role: "content" as const,
+        visualKind: (index === 4 || index === 8 ? "clip" : "still") as "clip" | "still",
+        claimType: "chapter" as const,
+        sourceRefs: [`eventSequence.${index}`, ...(index === 2 ? ["placeNotes.0"] : []), ...(index === 6 ? ["themes.0"] : [])],
+        scriptureQuote: null,
+        visualBrief: deepVisuals[index]!,
+        narration,
+      })),
+      {
+        role: "closing", visualKind: "closing", claimType: "chapter", sourceRefs: ["summary"], scriptureQuote: null, visualBrief: "",
+        narration: "Read Genesis 42 with care and notice the brothers' journey for grain, Joseph's recognition of them, and the tension that remains when Jacob hears their account.",
+      },
+    ],
+  };
+}
+
 describe("pipeline engine (mocked providers)", () => {
+  it("runs a fully grounded Deep-mode twelve-scene sequence without paid providers", async () => {
+    const h = harness();
+    const plan = deepTestPlan();
+    const deepSources = {
+      summary: "Genesis 42 follows Jacob's family through a famine as Joseph receives his brothers in Egypt for grain; they do not recognize him, and Jacob later hears their account.",
+      "themes.0": deepEvents[6]!,
+      "placeNotes.0": deepEvents[2]!,
+      ...Object.fromEntries(deepEvents.map((text, index) => [`eventSequence.${index}`, text])),
+    };
+    const errors = validatePlan(plan, "deep", deepSources, ctx);
+    expect(errors).toEqual([]);
+    h.video.study_mode = "deep";
+    h.video.call_budget = { ...MODE_SPECS.deep.budget };
+    h.engine.loadSources = async () => ({ sources: deepSources, chapterText: ctx.chapterText });
+    const provider = h.engine.providers;
+    provider.json = async (_instructions, _input, schemaName) =>
+      schemaName === "grounding_audit" ?
+        { scenes: plan.scenes.map((_, index) => ({ index, supported: true, reason: "" })) } : plan;
+    const result = await runToEnd(h, 90);
+    expect(result.row.status).toBe("completed");
+    expect(h.scenes).toHaveLength(12);
+    expect(h.video.call_usage.plan).toBe(2);
+    expect(h.video.call_usage.tts).toBe(12);
+    expect(h.video.call_usage.still).toBe(8);
+    expect(h.video.call_usage.clip).toBe(2);
+    expect(h.video.manifest).toBeTruthy();
+  });
+
   it("completes a quick study with exact provider-call counts and synced manifest", async () => {
     const h = harness();
     const r = await runToEnd(h);
