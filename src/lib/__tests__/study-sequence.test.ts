@@ -510,6 +510,93 @@ describe("pipeline engine (mocked providers)", () => {
     expect(h.video.call_usage.plan).toBe(2);
   });
 
+  it("recovers the original paid clip when delivery failed after provider completion", async () => {
+    const h = harness();
+    const upload = h.db.upload;
+    let deliveryFailed = false;
+    h.db.upload = async (path, bytes, contentType) => {
+      if (path.endsWith(".mp4") && !deliveryFailed) {
+        deliveryFailed = true;
+        throw new Error("asset upload failed (403)"); // permanent transfer failure, not an AI failure
+      }
+      await upload(path, bytes, contentType);
+    };
+    const failed = await runToEnd(h);
+    expect(failed.row.status).toBe("failed");
+    expect(failed.row.stage).toBe("visuals");
+    const clipScene = h.scenes.find((scene) => scene.visual_kind === "clip");
+    expect(clipScene?.visual_status).toBe("failed");
+    expect(clipScene?.visual_job_id).toBe("job1");
+    expect(clipScene?.last_error).toContain("recover the same clip");
+    expect(h.calls["clipCreate"]).toBe(1);
+    expect(h.video.call_usage.clip).toBe(1);
+    const retry = await retrySequence(h.db, "v1");
+    expect(retry?.status).toBe("generating");
+    expect(h.scenes.find((scene) => scene.visual_kind === "clip")?.visual_job_id).toBe("job1");
+    const finished = await runToEnd(h);
+    expect(finished.row.status).toBe("completed");
+    expect(h.calls["clipCreate"]).toBe(1);
+    expect(h.video.call_usage.clip).toBe(1);
+    expect(h.calls["clipPoll"]).toBeGreaterThanOrEqual(2);
+    expect(h.scenes.find((scene) => scene.visual_kind === "clip")?.visual_path).toMatch(/\.mp4$/);
+  });
+
+  it("retries transient asset uploads once without repeating paid illustration or speech calls", async () => {
+    const h = harness();
+    const original = h.db.upload;
+    let stillFailures = 1;
+    let narrationFailures = 1;
+    let uploadsAttempted = 0;
+    h.db.upload = async (path, bytes, contentType) => {
+      uploadsAttempted++;
+      if (path.endsWith(".png") && stillFailures-- > 0) throw new Error("asset upload failed (503)");
+      if (path.endsWith(".wav") && narrationFailures-- > 0) throw new Error("asset upload failed (502)");
+      await original(path, bytes, contentType);
+    };
+    const done = await runToEnd(h);
+    expect(done.row.status).toBe("completed");
+    expect(stillFailures).toBe(0);
+    expect(narrationFailures).toBe(0);
+    expect(uploadsAttempted).toBeGreaterThan(h.uploads.length);
+    expect(h.calls["still"]).toBe(2);
+    expect(h.calls["speech"]).toBe(5);
+    expect(h.video.call_usage.still).toBe(2);
+    expect(h.video.call_usage.tts).toBe(5);
+  });
+
+  it("never retries a moderation-blocked motion prompt or spends additional clip credits", async () => {
+    const h = harness();
+    h.engine.providers.clipPoll = async () => {
+      h.calls["clipPoll"]!++;
+      return { id: "job1", status: "failed", error: { code: "moderation_blocked", message: "Blocked" } };
+    };
+    const failed = await runToEnd(h);
+    expect(failed.row.status).toBe("failed");
+    expect(failed.row.stage_error).toContain("safety filter blocked");
+    expect(h.scenes.find((scene) => scene.visual_kind === "clip")?.visual_job_id).toBeNull();
+    expect(await retrySequence(h.db, "v1")).toBeNull();
+    expect(h.calls["clipCreate"]).toBe(1);
+    expect(h.video.call_usage.clip).toBe(1);
+  });
+
+  it("a terminal provider failure is not confused with a recoverable completed clip", async () => {
+    const h = harness();
+    let providerFailures = 1;
+    const originalPoll = h.engine.providers.clipPoll;
+    h.engine.providers.clipPoll = async (id) => {
+      if (providerFailures-- > 0) return { id, status: "failed", error: { code: "generation_failed" } };
+      return originalPoll(id);
+    };
+    const failed = await runToEnd(h);
+    expect(failed.row.status).toBe("failed");
+    expect(h.scenes.find(s => s.visual_kind === "clip")?.visual_job_id).toBeNull();
+    await retrySequence(h.db, "v1");
+    const finished = await runToEnd(h);
+    expect(finished.row.status).toBe("completed");
+    expect(h.calls["clipCreate"]).toBe(2); // only explicit retry pays for a new clip
+    expect(h.video.call_usage.clip).toBe(2);
+  });
+
   it("pauses all further costly visuals after the first failed scene until explicit retry", async () => {
     const h = harness({ failStillOnce: true });
     const failed = await runToEnd(h);
