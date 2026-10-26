@@ -152,7 +152,7 @@ describe("grounded plan contract", () => {
     expect(qualityIssues(original, "quick", sources).map(issue => issue.code)).toContain("duplicate_visual");
     const revised = differentiateVisualBriefs(original);
     expect(qualityIssues(revised, "quick", sources).map(issue => issue.code)).not.toContain("duplicate_visual");
-    expect(revised.scenes[3]!.visualBrief).toContain("Art direction only:");
+    expect(revised.scenes[3]!.visualBrief).toContain("art direction only:");
     for (let i = 0; i < original.scenes.length; i++) {
       expect(revised.scenes[i]!.narration).toBe(original.scenes[i]!.narration);
       expect(revised.scenes[i]!.sourceRefs).toEqual(original.scenes[i]!.sourceRefs);

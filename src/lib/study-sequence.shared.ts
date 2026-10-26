@@ -267,7 +267,7 @@ export function differentiateVisualBriefs(plan: SequencePlan): SequencePlan {
     }
     for (let attempt = 0; attempt < compositions.length; attempt++) {
       const directive = compositions[(index + attempt) % compositions.length]!;
-      const distinct = `${scene.visualBrief.trim()}. Art direction only: ${directive}.`;
+      const distinct = `${scene.visualBrief.trim()}. art direction only: ${directive.toLowerCase()}.`;
       const key = normalize(distinct);
       if (!used.has(key)) {
         used.add(key);
