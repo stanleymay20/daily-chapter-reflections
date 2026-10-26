@@ -30,7 +30,15 @@ export type SavedSequence = {
   assets: SceneAssets[];
   usage: Partial<CallCounts>;
 };
-export type ActiveSequence = { id: string; status: SequenceStatus; stage: SequenceStage | null; error: string | null; mode: SequenceMode | null };
+export type ActiveSequence = {
+  id: string;
+  status: SequenceStatus;
+  stage: SequenceStage | null;
+  error: string | null;
+  mode: SequenceMode | null;
+  budget?: Partial<CallCounts>;
+  usage?: Partial<CallCounts>;
+};
 
 async function token() {
   const { data } = await supabase.auth.getSession();
@@ -61,7 +69,7 @@ export async function loadSequences(versionId: string, passage: string): Promise
   await token();
   const { data, error } = await supabase
     .from("study_videos")
-    .select("id,status,stage,stage_error,study_mode,manifest,call_usage,created_at,selected_at")
+    .select("id,status,stage,stage_error,study_mode,manifest,call_budget,call_usage,created_at,selected_at")
     .eq("kind", "sequence")
     .eq("passage", passage)
     .eq("version_id", versionNumber(versionId))
@@ -94,7 +102,10 @@ export async function loadSequences(versionId: string, passage: string): Promise
     saved.push({ id: row.id, mode: row.study_mode as SequenceMode, createdAt: row.created_at, manifest, assets, usage: (row.call_usage ?? {}) as Partial<CallCounts> });
   }
   const activeRow = rows.find((r) => r.status === "queued" || r.status === "generating") ?? (rows[0]?.status === "failed" ? rows[0] : undefined);
-  const active = activeRow ? { id: activeRow.id, status: activeRow.status as SequenceStatus, stage: activeRow.stage as SequenceStage | null, error: activeRow.stage_error, mode: activeRow.study_mode as SequenceMode | null } : null;
+  const active = activeRow ? { id: activeRow.id, status: activeRow.status as SequenceStatus, stage: activeRow.stage as SequenceStage | null, error: activeRow.stage_error, mode: activeRow.study_mode as SequenceMode | null,
+    budget: (activeRow.call_budget ?? {}) as Partial<CallCounts>,
+    usage: (activeRow.call_usage ?? {}) as Partial<CallCounts>,
+  } : null;
   return { saved, active };
 }
 

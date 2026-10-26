@@ -73,7 +73,7 @@ export function useStudySequence(args: { passage: string; versionId: string | un
       try {
         const view = await advanceSequenceStep(jobId, args.label, l.abort.signal);
         setStep(view);
-        setActive({ id: view.id, status: view.status, stage: view.stage, error: view.error, mode: view.mode });
+        setActive({ id: view.id, status: view.status, stage: view.stage, error: view.error, mode: view.mode, budget: view.budget, usage: view.usage });
         if (view.status === "completed") {
           setNotice("Study video saved. It will be here after reload and on your other signed-in devices.");
           setActive(null);

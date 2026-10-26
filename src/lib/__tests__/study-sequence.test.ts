@@ -210,6 +210,16 @@ describe("grounded plan contract", () => {
     expect(qualityIssues(goodPlan(), "standard", sources).map((i) => i.code)).toEqual(expect.arrayContaining(["scene_count", "word_budget"]));
   });
 
+  it("rejects duplicated or out-of-range semantic-audit scene indexes", () => {
+    const rows = [
+      { index: 0, supported: true, reason: "" },
+      { index: 1, supported: true, reason: "" },
+    ];
+    expect(parseGroundingVerdict({ scenes: [rows[0], rows[0]] }, 2)).toBeNull();
+    expect(parseGroundingVerdict({ scenes: [rows[0], { index: 2, supported: true, reason: "" }] }, 2)).toBeNull();
+    expect(parseGroundingVerdict({ scenes: rows }, 2)).toEqual([]);
+  });
+
   it("entailment audit fails closed when incomplete", () => {
     expect(parseGroundingVerdict({ scenes: [{ index: 0, supported: true, reason: "" }] }, 2)).toBeNull();
     expect(parseGroundingVerdict({ scenes: [{ index: 0, supported: true, reason: "" }, { index: 1, supported: false, reason: "adds a place" }] }, 2)).toHaveLength(1);
@@ -328,6 +338,27 @@ describe("pipeline engine (mocked providers)", () => {
     h.video.status = "cancelled";
     await advanceSequence(h.engine, "v1");
     expect(h.calls["json"]).toBe(0);
+  });
+
+  it("refuses a failed planning retry when it cannot pay for both plan and audit", async () => {
+    const h = harness();
+    h.video.status = "failed";
+    h.video.stage = "planning";
+    h.video.call_usage.plan = 3;
+    const retry = await retrySequence(h.db, "v1");
+    expect(retry).toBeNull();
+    expect(h.video.status).toBe("failed");
+    expect(h.video.call_usage.plan).toBe(3);
+  });
+
+  it("allows a budgeted planning retry without resetting provider-call usage", async () => {
+    const h = harness();
+    h.video.status = "failed";
+    h.video.stage = "planning";
+    h.video.call_usage.plan = 2;
+    const retry = await retrySequence(h.db, "v1");
+    expect(retry?.status).toBe("generating");
+    expect(h.video.call_usage.plan).toBe(2);
   });
 
   it("explicit retry regenerates only the failed scene and never exceeds the ceiling", async () => {

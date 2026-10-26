@@ -97,7 +97,12 @@ export async function handleRetry(request: Request, input: z.infer<typeof jobSch
   const auth = bearerOf(request);
   if (!auth) return json("Sign in in Settings to use AI study tools.", 401);
   const db = restDb(auth);
+  const current = await db.loadVideo(input.jobId).catch(() => null);
+  if (current?.kind === "sequence" && current.status === "failed" && current.stage === "planning" &&
+      (current.call_budget.plan ?? 0) - (current.call_usage.plan ?? 0) < 2) {
+    return json("This planning attempt has too few AI requests left for a draft and mandatory grounding audit. Discard it and start a new version.", 409);
+  }
   const row = await retrySequence(db, input.jobId).catch(() => null);
-  if (!row) return json("Only a failed study video can be retried.", 409);
+  if (!row) return json("Only a failed study video with enough remaining budget can be retried.", 409);
   return Response.json({ id: row.id, status: row.status, stage: row.stage });
 }

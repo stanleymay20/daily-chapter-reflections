@@ -621,7 +621,7 @@ export function explainPlanIssues(issues: PlanIssue[]): string {
 }
 
 export function groundingCheckInstructions() {
-  return `You audit a Bible study script. For each scene, decide whether every factual statement in its narration and visual brief is directly supported by its cited SOURCES (and, for quotations, the CHAPTER TEXT). Unsupported names, events, causes, dates, places, doctrine or visual specifics mean supported=false. Interpretation is acceptable only when the scene's claimType is "uncertain" or "context" and it is worded tentatively. Return JSON only.`;
+  return `You audit a Bible study script. For each scene, decide whether every factual statement in its narration and visual brief is directly supported by its cited SOURCES (and, for quotations, the CHAPTER TEXT). Unsupported names, events, causes, dates, places, doctrine or *factual* visual specifics mean supported=false. Purely nonfactual image art direction (watercolor technique, camera framing, negative space, color wash) needs no Scripture source: it does not claim something happened in the chapter. Do not treat such stylistic directions as biblical facts, but NEVER exempt characters, actions, architecture, clothing, objects, places or other depicted factual content. Interpretation is acceptable only when the scene's claimType is "uncertain" or "context" and it is worded tentatively. Return JSON only.`;
 }
 
 export const GROUNDING_JSON_SCHEMA = {
@@ -646,10 +646,12 @@ export function parseGroundingVerdict(value: unknown, sceneCount: number): PlanI
   const rows = (value as { scenes: Array<{ index?: unknown; supported?: unknown; reason?: unknown }> }).scenes;
   const seen = new Set<number>();
   const issues: PlanIssue[] = [];
+  if (rows.length !== sceneCount) return null;
   for (const row of rows) {
-    if (typeof row.index !== "number" || typeof row.supported !== "boolean") return null;
-    seen.add(row.index);
-    if (!row.supported) issues.push({ scene: row.index, code: "entailment", detail: String(row.reason ?? "Not supported by cited sources.").slice(0, 200) });
+    if (!Number.isInteger(row.index) || (row.index as number) < 0 || (row.index as number) >= sceneCount ||
+        typeof row.supported !== "boolean" || seen.has(row.index as number)) return null;
+    seen.add(row.index as number);
+    if (!row.supported) issues.push({ scene: row.index as number, code: "entailment", detail: String(row.reason ?? "Not supported by cited sources.").slice(0, 200) });
   }
   for (let i = 0; i < sceneCount; i += 1) if (!seen.has(i)) return null; // incomplete audit = fail closed
   return issues;

@@ -579,6 +579,12 @@ export async function advanceSequence(ctx: EngineContext, videoId: string): Prom
 export async function retrySequence(db: Db, videoId: string) {
   const row = await db.loadVideo(videoId);
   if (!row || row.kind !== "sequence" || row.status !== "failed") return null;
+  // A new planning attempt requires a draft AND an independent audit. Don't
+  // turn a failed job back into "generating" when the budget cannot cover both.
+  if (row.stage === "planning") {
+    const remaining = (row.call_budget.plan ?? 0) - (row.call_usage.plan ?? 0);
+    if (remaining < 2) return null;
+  }
   const scenes = await db.loadScenes(videoId);
   if (row.stage === "visuals") for (const s of scenes.filter((x) => x.visual_status === "failed")) await db.patchScene(s.id, { visual_status: "pending", visual_job_id: null, last_error: null });
   if (row.stage === "narration") for (const s of scenes.filter((x) => x.narration_status === "failed")) await db.patchScene(s.id, { narration_status: "pending", last_error: null });

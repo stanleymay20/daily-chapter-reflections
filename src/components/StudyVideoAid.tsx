@@ -47,7 +47,11 @@ export function StudyVideoAid({ sequence, legacy, label, poster }: { sequence: S
   const active = sequence.active;
   const stageIndex = STAGES.findIndex((s) => s.id === (active?.stage ?? step?.stage));
   const failed = active?.status === "failed";
-  const planningSpent = failed && active?.stage === "planning" && step && (step.usage.plan ?? 0) >= (step.budget.plan ?? 0);
+  // Persisted job budgets remain available after refreshing the page.
+  const planBudget = step?.budget.plan ?? active?.budget?.plan;
+  const planUsage = step?.usage.plan ?? active?.usage?.plan;
+  const planningSpent = failed && active?.stage === "planning" && typeof planBudget === "number" &&
+    planBudget - (planUsage ?? 0) < 2;
 
   return (
     <Card className="overflow-hidden">
@@ -87,14 +91,14 @@ export function StudyVideoAid({ sequence, legacy, label, poster }: { sequence: S
           ) : failed ? (
             <>
               <Button className="min-h-11" size="sm" disabled={Boolean(planningSpent)} onClick={() => void sequence.retry()}><RotateCcw className="mr-1 size-4" />Retry failed stage</Button>
-              <Button className="min-h-11" variant="outline" size="sm" onClick={() => void sequence.cancel()}>Discard</Button>
+              <Button className="min-h-11" variant="outline" size="sm" onClick={() => void sequence.cancel()}>Discard failed attempt</Button>
             </>
           ) : (
             <Button className="min-h-11" size="sm" onClick={() => void sequence.generate(Boolean(sequence.selected && sequence.selected.mode === sequence.mode))}>
               {sequence.selected && sequence.selected.mode === sequence.mode ? "Create a new version" : "Generate study video"}
             </Button>
           )}
-          {planningSpent ? <p className="basis-full text-xs text-muted-foreground">The planning budget for this attempt is exhausted. Discard it before creating another version; no extra calls will be made automatically.</p> : null}
+          {planningSpent ? <p className="basis-full text-xs text-muted-foreground">This attempt cannot afford another draft and the mandatory Scripture-grounding audit. Discard this failed attempt to start a new generation. Your daily video quota and provider credits still apply.</p> : null}
           {sequence.generating && !step?.worked && step?.waiting === false && step?.status === "generating" ? (
             <Button className="min-h-11" variant="ghost" size="sm" onClick={sequence.resume}>Resume</Button>
           ) : null}
