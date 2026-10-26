@@ -22,7 +22,7 @@ export type AppSettings = {
   timezone: string;
   chaptersPerDay: number;
   activeTracks: string[];
-  readingPlanMode: "original" | "personal";
+  readingPlanMode: "unselected" | "original" | "personal";
   personalReadingPlan: PersonalPlan;
 };
 
@@ -57,7 +57,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   eveningReminderTime: "19:00",
   timezone: "Europe/Berlin",
   chaptersPerDay: 7,
-  readingPlanMode: "original",
+  readingPlanMode: "unselected",
   personalReadingPlan: DEFAULT_PERSONAL_PLAN,
   activeTracks: ["Law", "History", "Psalms", "Wisdom", "Prophets", "Gospels", "Acts & Epistles"],
 };
@@ -66,7 +66,13 @@ function browser() { return typeof window !== "undefined"; }
 
 export function loadSettings(): AppSettings {
   if (!browser()) return DEFAULT_SETTINGS;
-  try { return { ...DEFAULT_SETTINGS, ...JSON.parse(localStorage.getItem(SETTINGS_KEY) || "{}") }; }
+  try {
+    const raw = localStorage.getItem(SETTINGS_KEY);
+    if (!raw) return DEFAULT_SETTINGS; // New readers choose a plan explicitly.
+    const saved = JSON.parse(raw) as Partial<AppSettings>;
+    // Existing readers without a mode keep their original seven-track plan.
+    return { ...DEFAULT_SETTINGS, ...saved, readingPlanMode: saved.readingPlanMode ?? "original" };
+  }
   catch { return DEFAULT_SETTINGS; }
 }
 

@@ -8,7 +8,7 @@ export type CalendarExportOptions = {
   timezone: string;
   chaptersPerDay: number;
   activeTracks: string[];
-  readingPlanMode?: "original" | "personal";
+  readingPlanMode?: "unselected" | "original" | "personal";
   personalReadingPlan?: PersonalPlan;
 };
 

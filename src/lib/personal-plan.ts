@@ -14,7 +14,7 @@ export type PersonalPlan = {
   repeat: boolean;
 };
 export type ReadingPlanChoice = {
-  readingPlanMode?: "original" | "personal";
+  readingPlanMode?: "unselected" | "original" | "personal";
   personalReadingPlan?: PersonalPlan;
   activeTracks: string[];
   chaptersPerDay: number;
@@ -92,6 +92,7 @@ export function personalReadingsForDate(date: string, configuration: PersonalPla
 
 /** Resolves the selected reading plan for all calendar, today, export and reader views. */
 export function scheduledChapters(date: string, settings: ReadingPlanChoice): ChapterRef[] {
+  if (settings.readingPlanMode === "unselected") return [];
   if (settings.readingPlanMode === "personal") return personalReadingsForDate(date, settings.personalReadingPlan ?? DEFAULT_PERSONAL_PLAN);
   const canonical = getPlanForDate(date)?.chapters ?? [];
   return canonical.filter(chapter => settings.activeTracks.includes(chapter.track))

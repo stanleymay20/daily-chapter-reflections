@@ -54,8 +54,9 @@ function Home(){
       </Card>
     </header>
 
+    {settings.readingPlanMode === "unselected" ? <Card className="mt-6 p-5"><h2 className="text-lg font-semibold">Begin with a plan that fits you</h2><p className="mt-2 text-sm text-muted-foreground">Choose your own Bible books and pace, or select the original seven-chapter plan. Nothing is assigned to you until you choose.</p><Link to="/plans" className="mt-4 block"><Button className="w-full">Choose my Bible reading plan</Button></Link></Card> : null}
     <section className="mt-6">
-      <div className="mb-3 flex items-center justify-between gap-2"><p className="text-xs text-muted-foreground">{settings.readingPlanMode === "personal" ? settings.personalReadingPlan?.name || "My reading plan" : "Original seven-track plan"}</p><Link to="/plans" className="text-xs font-semibold text-primary underline">Choose your plan</Link></div>
+      <div className="mb-3 flex items-center justify-between gap-2"><p className="text-xs text-muted-foreground">{settings.readingPlanMode === "personal" ? settings.personalReadingPlan?.name || "My reading plan" : settings.readingPlanMode === "unselected" ? "No plan selected yet" : "Original seven-track plan"}</p><Link to="/plans" className="text-xs font-semibold text-primary underline">Choose your plan</Link></div>
       <div className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-3"><div className="min-w-0"><h2 className="font-[family-name:var(--font-scripture)] text-2xl font-semibold">Today's chapters</h2></div>{biblesQuery.isLoading?<Skeleton className="h-9 w-28"/>:bibles.length>0?<TranslationPicker bibles={bibles} {...(active?{value:active.id}:{})} onChange={select}/>:null}</div>
       <p className="mt-1 text-xs text-muted-foreground">Source: YouVersion Platform. Study guidance is always shown separately.</p>
 
