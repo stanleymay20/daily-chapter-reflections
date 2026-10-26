@@ -355,8 +355,8 @@ async function runPlanning(ctx: EngineContext, row: SequenceRow): Promise<Advanc
     // Never bypass deterministic validation or the subsequent semantic audit.
     // Keep one credit for the mandatory independent grounding audit.
     const latest = await ctx.db.loadVideo(row.id);
-    const remaining = (latest?.call_budget.plan ?? 0) - (latest?.call_usage.plan ?? 0);
-    if (remaining < 2 || !(await ctx.db.consumeCall(row.id, "plan"))) {
+    const planningCallsLeft = (latest?.call_budget.plan ?? 0) - (latest?.call_usage.plan ?? 0);
+    if (planningCallsLeft < 2 || !(await ctx.db.consumeCall(row.id, "plan"))) {
       return { row: await fail(ctx, row, `The draft plan did not pass validation, and not enough planning budget remains to repair and audit it. ${explainPlanIssues(issues)}`), scenes: [], worked: true, waiting: false, issues };
     }
     try {
