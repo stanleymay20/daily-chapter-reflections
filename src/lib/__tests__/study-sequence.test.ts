@@ -510,6 +510,33 @@ describe("pipeline engine (mocked providers)", () => {
     expect(h.video.call_usage.plan).toBe(2);
   });
 
+  it("waits for an in-flight motion clip before purchasing later visuals", async () => {
+    const h = harness();
+    let polls = 0;
+    const originalPoll = h.engine.providers.clipPoll;
+    h.engine.providers.clipPoll = async (id) => {
+      polls++;
+      if (polls <= 2) return { id, status: "in_progress" };
+      return originalPoll(id);
+    };
+    await advanceSequence(h.engine, "v1"); // plan and independently audit
+    await advanceSequence(h.engine, "v1"); // first still
+    await advanceSequence(h.engine, "v1"); // start clip
+    expect(h.calls["still"]).toBe(1);
+    expect(h.calls["clipCreate"]).toBe(1);
+    for (let i = 0; i < 2; i++) {
+      const pending = await advanceSequence(h.engine, "v1");
+      expect(pending.row.stage).toBe("visuals");
+      expect(pending.waiting).toBe(true);
+      expect(h.calls["still"]).toBe(1); // no paid visual while clip unresolved
+      expect(h.calls["clipCreate"]).toBe(1);
+    }
+    const done = await runToEnd(h);
+    expect(done.row.status).toBe("completed");
+    expect(h.calls["still"]).toBe(2);
+    expect(h.calls["clipCreate"]).toBe(1);
+  });
+
   it("recovers the original paid clip when delivery failed after provider completion", async () => {
     const h = harness();
     const upload = h.db.upload;
