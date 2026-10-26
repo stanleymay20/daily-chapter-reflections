@@ -221,6 +221,65 @@ function quotedSpans(text: string) {
   return [...text.matchAll(/[“"]([^”"]{3,})[”"]/g)].map((m) => m[1] ?? "");
 }
 
+/**
+ * A single-quoted quotation begins outside a word. Apostrophes within
+ * names, possessives and contractions (Joseph's, God's, don't) are not quotes.
+ * A full quoted speech fragment remains forbidden even if no double marks appear.
+ */
+function hasSingleQuotedSpeech(text: string): boolean {
+  return /(?<![\p{L}\p{N}])['‘](?=\S)[^'‘’\n]{3,}?['’](?![\p{L}\p{N}])/u.test(text);
+}
+
+/**
+ * Safely differentiate repeated illustration compositions without rewriting
+ * Scripture, narration, sources or underlying historical claims.
+ * Adds only painting/framing directions; unsupported factual imagery still fails
+ * the deterministic source checks and independent semantic grounding audit.
+ */
+export function differentiateVisualBriefs(plan: SequencePlan): SequencePlan {
+  const used = new Set<string>();
+  const normalize = (value: string) => value.trim().toLowerCase().replace(/\s+/g, " ");
+  const compositions = [
+    "Airy watercolor framing with muted diagonal brushstrokes and open space on the left",
+    "Layered pastel washes with gentle horizontal brushwork and open space on the right",
+    "Balanced central composition with broad negative space above",
+    "Asymmetric ink wash with softly graduated color along the lower edge",
+    "Wide painterly composition with subtle vertical washes and quiet negative space",
+    "Sparse watercolor composition with a narrow band of soft pigment",
+    "Delicate textured paper effect with a diffuse circular color wash",
+    "Minimalist composition with graduated shading and softly layered edges",
+    "Softly blended earth-tone palette with a gentle diagonal composition",
+    "Restful broad composition with fine granular watercolor texture",
+    "Open composition with softly interrupted bands of warm neutral pigment",
+    "Muted watercolor composition with a shallow curved sweep of pigment",
+    "Calm pale tonal composition with a soft wash concentrated to one side",
+    "Light painterly composition with a subtle arc of blended brushstrokes",
+    "Sparse neutral watercolor composition with deep breathing room at the edges",
+    "Gentle tonal composition with a slight off-center focus and soft brushwork",
+  ];
+  let changed = false;
+  const scenes = plan.scenes.map((scene, index) => {
+    if (scene.visualKind !== "still" && scene.visualKind !== "clip") return scene;
+    const base = normalize(scene.visualBrief);
+    if (!used.has(base)) {
+      used.add(base);
+      return scene;
+    }
+    for (let attempt = 0; attempt < compositions.length; attempt++) {
+      const directive = compositions[(index + attempt) % compositions.length]!;
+      const distinct = `${scene.visualBrief.trim()}. Art direction only: ${directive}.`;
+      const key = normalize(distinct);
+      if (!used.has(key)) {
+        used.add(key);
+        changed = true;
+        return { ...scene, visualBrief: distinct };
+      }
+    }
+    return scene; // Retain the original so the duplicate gate fails closed.
+  });
+  return changed ? { ...plan, scenes } : plan;
+}
+
 // ---------------------------------------------------------------- deterministic gates
 
 export type PlanIssue = { scene: number | null; code: string; detail: string };
@@ -260,7 +319,7 @@ export function groundingIssues(plan: SequencePlan, sources: GroundingSources, c
     // Dialogue / impersonation outside verified quotations.
     const unquoted = scene.narration.replace(/[“"][^”"]*[”"]/g, " ");
     if (DIALOGUE_PATTERNS.some((re) => re.test(unquoted))) push("dialogue", "Narration contains character or divine speech outside a verified Scripture quotation.");
-    if (/[‘'][^’']{12,}[’']/.test(unquoted)) push("dialogue", "Narration contains a quotation in single marks.");
+    if (hasSingleQuotedSpeech(unquoted)) push("dialogue", "Narration contains a quotation in single marks.");
 
     // Named entities, numbers, causal and chronology claims must appear in the cited sources.
     for (const entity of namedEntities(`${unquoted}. ${scene.visualBrief}`)) {
@@ -332,7 +391,9 @@ export function qualityIssues(plan: SequencePlan, mode: SequenceMode, sources: G
       const inter = [...x].filter((s) => y.has(s)).length;
       const union = new Set([...x, ...y]).size || 1;
       if (inter / union >= 0.6) push(b, "duplicate", "Scene repeats an earlier scene.");
-      if (scenes[a]!.visualBrief && scenes[a]!.visualBrief.toLowerCase() === scenes[b]!.visualBrief.toLowerCase()) push(b, "duplicate_visual", "Visual repeats an earlier scene.");
+      const visualA = scenes[a]!.visualBrief.trim().toLowerCase().replace(/\s+/g, " ");
+      const visualB = scenes[b]!.visualBrief.trim().toLowerCase().replace(/\s+/g, " ");
+      if (visualA && visualA === visualB) push(b, "duplicate_visual", "Visual repeats an earlier scene.");
     }
   }
 
@@ -530,14 +591,15 @@ export function planInstructions(mode: SequenceMode, reference: string) {
   const spec = MODE_SPECS[mode];
   return `You plan a private Bible study explainer for ${reference}. You are given numbered guide SOURCES and the CHAPTER TEXT. Return JSON only.
 
-Rules (a validator rejects any violation; nothing is repaired):
+Rules (the complete plan must pass both deterministic checks and an independent grounding audit):
 - ${spec.scenes[0]}–${spec.scenes[1]} scenes. Scene 1: role "opening", visualKind "title" — names the reference and what the study covers. Last scene: role "closing", visualKind "closing" — invites the viewer back to read the chapter text itself.
 - Middle scenes: role "content", visualKind "still" or "clip" (at most ${spec.maxClips} clips, at most ${spec.maxStills} stills). Follow the chapter's event order.
 - Total narration ${spec.words[0]}–${spec.words[1]} words; each scene 8–70 words. Calm, neutral study narrator in third person. Teach what happens and why it matters using only the cited sources; no filler.
 - Every scene lists sourceRefs (exact source ids). Every name, place, number, cause, date and detail must appear in the cited sources. Do not add facts, doctrine, archaeology, geography, clothing, ethnicity or chronology not in them.
 - claimType: "chapter" for what the chapter states, "context" for guide background, "uncertain" for interpretation — word uncertain claims with "may", "perhaps" or "likely".
 - Never write dialogue or first-person speech for God, Jesus, prophets or any character. No "he said:". No "I", "me", "my".
-- A Scripture quotation is optional, at most 25 words, copied verbatim from CHAPTER TEXT, wrapped in double quotes in narration and copied exactly into scriptureQuote. Otherwise scriptureQuote is null and narration has no quotation marks.
+- A Scripture quotation is optional, at most 25 words, copied verbatim from CHAPTER TEXT, wrapped in double quotes in narration and copied exactly into scriptureQuote. Otherwise scriptureQuote is null and narration has no quotation marks. Apostrophes in ordinary names and possessives (Joseph's, God's) are fine. Do NOT enclose any dialogue in single quotation marks.
+- Every content scene visual must be unique, varied and closely supported by its own sourceRefs. Repeated generic backgrounds are unacceptable. Describe a different grounded subject or symbolic motif for each scene, without inventing facts. Keep narration and scene sources distinct and relevant.
 - visualBrief: describe only allowed POSITIVE visual content: abstract landscapes, light, texture, distant silhouettes. Do not include prohibited nouns anywhere in the brief, even as negations such as "no faces" or "no text". Never specify an unsupported physical detail. The image provider receives separate exclusion rules. Divine presence only as symbolic light, clouds or stillness. Title/closing briefs may be short.`;
 }
 

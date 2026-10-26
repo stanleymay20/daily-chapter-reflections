@@ -8,6 +8,7 @@ import {
   canSpend,
   cuesToVtt,
   estimateFor,
+  differentiateVisualBriefs,
   groundingIssues,
   groundingSources,
   modeForStudy,
@@ -129,6 +130,34 @@ describe("grounded plan contract", () => {
     const p2 = goodPlan();
     p2.scenes[3]!.narration = "Thus says the Lord to Jacob about Benjamin and Simeon and the grain.";
     expect(groundingIssues(p2, sources, ctx).map((i) => i.code)).toContain("dialogue");
+  });
+
+  it("permits apostrophes in normal possessives without treating them as speech", () => {
+    const p = goodPlan();
+    p.scenes[1]!.narration = "Joseph's brothers travel to Egypt. Jacob's sons seek grain. God's name is not quoted; the family's journey is described by the chapter guide.";
+    expect(groundingIssues(p, sources, ctx).map(issue => issue.code)).not.toContain("dialogue");
+  });
+
+  it("still blocks actual dialogue in straight and curly single quotation marks", () => {
+    for (const quote of ["'Bring Benjamin to Egypt'", "‘Bring Benjamin to Egypt’"]) {
+      const p = goodPlan();
+      p.scenes[1]!.narration = `The brothers speak: ${quote}. Joseph's family remains in Egypt.`;
+      expect(groundingIssues(p, sources, ctx).map(issue => issue.code)).toContain("dialogue");
+    }
+  });
+
+  it("differentiates repeated scene compositions without changing narration, sources or quotations", () => {
+    const original = goodPlan();
+    original.scenes[3]!.visualBrief = original.scenes[1]!.visualBrief;
+    expect(qualityIssues(original, "quick", sources).map(issue => issue.code)).toContain("duplicate_visual");
+    const revised = differentiateVisualBriefs(original);
+    expect(qualityIssues(revised, "quick", sources).map(issue => issue.code)).not.toContain("duplicate_visual");
+    expect(revised.scenes[3]!.visualBrief).toContain("Art direction only:");
+    for (let i = 0; i < original.scenes.length; i++) {
+      expect(revised.scenes[i]!.narration).toBe(original.scenes[i]!.narration);
+      expect(revised.scenes[i]!.sourceRefs).toEqual(original.scenes[i]!.sourceRefs);
+      expect(revised.scenes[i]!.scriptureQuote).toBe(original.scenes[i]!.scriptureQuote);
+    }
   });
 
   it("permits only short verbatim, labeled Scripture quotations", () => {
@@ -340,6 +369,32 @@ describe("pipeline engine (mocked providers)", () => {
     const r = await advanceSequence(h.engine, "v1");
     expect(r.row.status).toBe("failed");
     expect(h.calls["still"]).toBe(0);
+  });
+
+  it("does not spend corrective planning credits for harmless possessives and duplicate art direction", async () => {
+    const h = harness();
+    const original = h.engine.providers.json;
+    h.engine.providers.json = async (...args) => {
+      if (args[2] === "grounding_audit") return original(...args);
+      const plan = goodPlan();
+      plan.scenes[3]!.visualBrief = plan.scenes[1]!.visualBrief;
+      plan.scenes[1]!.narration = "Joseph's brothers travel to Egypt to buy grain because of famine. Jacob's sons seek grain, but Jacob keeps Benjamin at home.";
+      return plan;
+    };
+    const result = await runToEnd(h);
+    expect(result.row.status).toBe("completed");
+    expect(h.video.call_usage.plan).toBe(2); // draft + independent audit only
+    expect(h.calls["still"]).toBe(2);
+    expect(h.calls["speech"]).toBe(5);
+  });
+
+  it("does not spend a final lone planning call without enough budget for the audit", async () => {
+    const h = harness();
+    h.video.call_usage.plan = 3;
+    const result = await advanceSequence(h.engine, "v1");
+    expect(result.row.status).toBe("failed");
+    expect(h.calls["json"]).toBe(0);
+    expect(h.video.call_usage.plan).toBe(3);
   });
 
   it("repairs a rejected plan once and revalidates before generating assets", async () => {
