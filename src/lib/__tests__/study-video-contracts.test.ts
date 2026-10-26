@@ -16,6 +16,7 @@ import {
 const src = (p: string) => readFileSync(new URL(p, import.meta.url), "utf8");
 const migration = src("../../../drizzle/migrations/0005_study_video_aid.sql");
 const startRoute = src("../../routes/api/study-video/start.ts");
+const sequenceStartRoute = src("../../routes/api/study-video/sequence-start.ts");
 const statusRoute = src("../../routes/api/study-video/status.ts");
 const hook = src("../../hooks/useStudyVideo.ts");
 const component = src("../../components/StudyVideoAid.tsx");
@@ -68,9 +69,9 @@ describe("video aid security and cost contract", () => {
     expect(migration).toContain("revoke all on function public.consume_ai_quota(text) from public, anon");
     expect(startRoute).toContain('authorizeAiRequest(request, "video")');
     // A denied start is never a failed stage that can spend providers via retry.
-    expect(startRoute).toContain('status: "cancelled"');
-    expect(startRoute).not.toContain('status: "failed", stage_error: access.error');
-    expect(startRoute).toContain("retryAfter");
+    expect(sequenceStartRoute).toContain('status: "cancelled"');
+    expect(sequenceStartRoute).not.toContain('status: "failed", stage_error: access.error');
+    expect(sequenceStartRoute).toContain("retryAfter");
     expect(startRoute).not.toContain('"image")');
   });
 
