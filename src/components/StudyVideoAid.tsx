@@ -8,6 +8,7 @@ import type { useStudySequence } from "@/hooks/useStudySequence";
 import type { useStudyVideo } from "@/hooks/useStudyVideo";
 import { MODE_SPECS, SEQUENCE_LABEL, estimateFor, planRetryBlock, type SequenceMode } from "@/lib/study-sequence.shared";
 import { scenesToVtt } from "@/lib/study-video.shared";
+import { formatVideoQuotaReset } from "@/lib/study-video-quota";
 
 type Sequence = ReturnType<typeof useStudySequence>;
 type Legacy = ReturnType<typeof useStudyVideo>;
@@ -96,6 +97,18 @@ export function StudyVideoAid({ sequence, legacy, label, poster }: { sequence: S
               {!retryBlock ? <Button className="min-h-11" size="sm" onClick={() => void sequence.retry()}><RotateCcw className="mr-1 size-4" />Retry failed stage</Button> : null}
               <Button className="min-h-11" variant="outline" size="sm" onClick={() => void sequence.cancel()}>Discard failed attempt</Button>
             </>
+          ) : sequence.videoQuotaUntil ? (
+            <div className="w-full space-y-2" role="status" aria-live="polite">
+              <Button className="min-h-11" size="sm" disabled aria-disabled="true">Daily video limit reached</Button>
+              <p className="text-xs leading-relaxed text-muted-foreground">
+                New videos are available after{" "}
+                <time dateTime={new Date(sequence.videoQuotaUntil).toISOString()} className="font-semibold text-foreground">
+                  {formatVideoQuotaReset(sequence.videoQuotaUntil)}
+                </time>{" "}
+                (your local time). This applies to Quick, Standard and Deep, even on different chapters.
+                Previously saved videos and your regular Bible reading remain available.
+              </p>
+            </div>
           ) : (
             <Button className="min-h-11" size="sm" onClick={() => void sequence.generate(Boolean(sequence.selected && sequence.selected.mode === sequence.mode))}>
               {sequence.selected && sequence.selected.mode === sequence.mode ? "Create a new version" : "Generate study video"}
@@ -135,7 +148,7 @@ export function StudyVideoAid({ sequence, legacy, label, poster }: { sequence: S
       ) : null}
 
       {sequence.notice ? <p className="border-t px-4 py-3 text-xs text-muted-foreground">{sequence.notice}</p> : null}
-      {sequence.error ? <p className="border-t px-4 py-3 text-xs text-destructive" role="alert">{sequence.error}</p> : null}
+      {sequence.error && !sequence.videoQuotaUntil ? <p className="border-t px-4 py-3 text-xs text-destructive" role="alert">{sequence.error}</p> : null}
 
       {sequence.saved.length ? (
         <div className="border-t p-4">

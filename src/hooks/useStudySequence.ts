@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { readVideoQuotaReset, storeVideoQuotaReset, VideoQuotaError } from "@/lib/study-video-quota";
 
 import type { StudyInsights } from "@/lib/insights.functions";
 import { hashInsightsForImage } from "@/lib/study-media";
@@ -34,9 +36,36 @@ export function useStudySequence(args: { passage: string; versionId: string | un
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [videoQuotaUntil, setVideoQuotaUntil] = useState<number | null>(null);
   const loop = useRef<{ timer: number | null; abort: AbortController | null; steps: number; alive: boolean }>({ timer: null, abort: null, steps: 0, alive: true });
 
   useEffect(() => setMode(modeForStudy(args.studyMode).mode), [args.studyMode]);
+
+  // The signed-in user's previously rejected video start remains visibly
+  // blocked across chapter changes and page reloads, not across other accounts.
+  useEffect(() => {
+    let mounted = true;
+    void supabase.auth.getSession().then(({ data }) => {
+      if (mounted) setVideoQuotaUntil(readVideoQuotaReset(data.session?.user.id ?? ""));
+    }).catch(() => undefined);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (mounted) setVideoQuotaUntil(readVideoQuotaReset(session?.user.id ?? ""));
+    });
+    return () => { mounted = false; subscription.unsubscribe(); };
+  }, []);
+
+  useEffect(() => {
+    if (!videoQuotaUntil) return;
+    const remaining = videoQuotaUntil - Date.now();
+    if (remaining <= 0) { setVideoQuotaUntil(null); return; }
+    const timer = window.setTimeout(() => {
+      setVideoQuotaUntil(null);
+      setError((current) => /video generation limit reached/i.test(current) ? "" : current);
+    }, remaining + 1000);
+    return () => window.clearTimeout(timer);
+  }, [videoQuotaUntil]);
+
+
 
   const stop = useCallback(() => {
     const l = loop.current;
@@ -124,6 +153,12 @@ export function useStudySequence(args: { passage: string; versionId: string | un
     setNotice("");
     setBusy(true);
     try {
+      const session = await supabase.auth.getSession();
+      const scopedQuota = readVideoQuotaReset(session.data.session?.user.id ?? "");
+      if (scopedQuota && scopedQuota > Date.now()) {
+        setVideoQuotaUntil(scopedQuota);
+        return; // No duplicate reservation, provider call or paid attempt.
+      }
       const guideHash = await hashInsightsForImage(args.insights);
       const reservation = await reserveSequence(args.versionId, args.passage, guideHash, mode, force);
       if (reservation.reused) {
@@ -140,6 +175,12 @@ export function useStudySequence(args: { passage: string; versionId: string | un
       setActive({ id: reservation.id, status: "generating", stage: "planning", error: null, mode });
       drive(reservation.id);
     } catch (startError) {
+      if (startError instanceof VideoQuotaError) {
+        // Share the reset across chapters of this account, not across users.
+        const session = await supabase.auth.getSession().catch(() => null);
+        storeVideoQuotaReset(session?.data.session?.user.id ?? "", startError.resetAt);
+        setVideoQuotaUntil(startError.resetAt);
+      }
       setError(startError instanceof Error ? startError.message : "The study video could not be started.");
       await refresh();
     } finally {
@@ -183,5 +224,5 @@ export function useStudySequence(args: { passage: string; versionId: string | un
 
   const selected = saved.find((s) => s.id === selectedId) ?? saved[0] ?? null;
   const generating = busy || active?.status === "generating" || active?.status === "queued";
-  return { mode, setMode, suggested: preferred.suggested, saved, selected, setSelectedId, active, step, generating, error, notice, generate, cancel, retry, resume, remove };
+  return { mode, setMode, suggested: preferred.suggested, saved, selected, setSelectedId, active, step, generating, error, notice, videoQuotaUntil: videoQuotaUntil && videoQuotaUntil > Date.now() ? videoQuotaUntil : null, generate, cancel, retry, resume, remove };
 }

@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { formatVideoQuotaReset, serverVideoResetAt, VideoQuotaError } from "./study-video-quota";
 import { parseManifest, type CallCounts, type SequenceManifest, type SequenceMode, type SequenceStage } from "./study-sequence.shared";
 
 const BUCKET = "study-videos";
@@ -56,15 +57,15 @@ async function post<T>(endpoint: string, body: unknown, signal?: AbortSignal): P
   });
   const payload = (await response.json().catch(() => ({}))) as T & { message?: string; retryAfter?: number };
   if (!response.ok) {
-    let message = payload.message || `Study video request failed (${response.status}).`;
-    if (response.status === 429 && endpoint === "/api/study-video/sequence-start" &&
-        typeof payload.retryAfter === "number" && Number.isFinite(payload.retryAfter) &&
-        payload.retryAfter > 0 && payload.retryAfter <= 86400) {
-      // The database supplies the authoritative UTC reset in seconds. Display
-      // the calendar time in the reader's local timezone instead of assuming Berlin.
-      const local = new Date(Date.now() + payload.retryAfter * 1000)
-        .toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
-      message += ` Next attempt is available around ${local} (your local time).`;
+    const message = payload.message || `Study video request failed (${response.status}).`;
+    // A rejected video start does not create paid scenes. The reset time is
+    // advisory client state; only the server's quota RPC may authorize a start.
+    const resetAt = serverVideoResetAt(endpoint, response.status, payload.retryAfter);
+    if (resetAt !== null) {
+      throw new VideoQuotaError(
+        `${message} Next attempt is available around ${formatVideoQuotaReset(resetAt)} (your local time).`,
+        resetAt,
+      );
     }
     throw new Error(message);
   }
