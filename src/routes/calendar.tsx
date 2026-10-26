@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { DEFAULT_SETTINGS, loadSettings, type AppSettings } from "@/lib/app-state";
-import { berlinToday, chapterLabel, formatMonthName, getPlanForDate, passageId } from "@/lib/schedule";
+import { berlinToday, chapterLabel, formatMonthName, passageId } from "@/lib/schedule";
+import { scheduledChapters } from "@/lib/personal-plan";
 
 export const Route=createFileRoute("/calendar")({component:CalendarPage});
 type Store=Record<string,string>;
@@ -17,7 +18,7 @@ function CalendarPage(){
   useEffect(()=>{setStore(readProgress());setSettings(loadSettings())},[]);
   const first=new Date(Date.UTC(year,month,1));const days=new Date(Date.UTC(year,month+1,0)).getUTCDate();const offset=(first.getUTCDay()+6)%7;const cells=useMemo(()=>Array.from({length:offset+days},(_,i)=>i<offset?null:i-offset+1),[offset,days]);const monthName=formatMonthName(year,month);
   const move=(delta:number)=>{const d=new Date(Date.UTC(year,month+delta,1));setYear(d.getUTCFullYear());setMonth(d.getUTCMonth())};
-  const chaptersFor=(date:string)=>{const all=getPlanForDate(date)?.chapters??[];return all.filter(c=>settings.activeTracks.includes(c.track)).slice(0,Math.max(1,settings.chaptersPerDay))};
+  const chaptersFor=(date:string)=>{return scheduledChapters(date,settings)};
   const completion=(date:string)=>{const rows=chaptersFor(date);const done=rows.filter(c=>store[`${date}|${passageId(c.usfm,c.chapter)}`]==="complete").length;return{done,total:rows.length}};
   const chapters=chaptersFor(selected);const selectedStats=completion(selected);const next=chapters.find(c=>store[`${selected}|${passageId(c.usfm,c.chapter)}`]!=="complete");
   return <main className="mx-auto min-h-screen w-full max-w-2xl px-4 pb-nav pt-8 sm:px-6">

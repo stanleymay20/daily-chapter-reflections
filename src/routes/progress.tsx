@@ -3,8 +3,9 @@ import { BookOpenCheck, Flame, Highlighter, NotebookPen, Target } from "lucide-r
 import { useEffect, useMemo, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { loadSavedVerses } from "@/lib/app-state";
-import { berlinToday, getPlanForDate, passageId } from "@/lib/schedule";
+import { DEFAULT_SETTINGS, loadSavedVerses, loadSettings, type AppSettings } from "@/lib/app-state";
+import { scheduledChapters } from "@/lib/personal-plan";
+import { berlinToday, passageId } from "@/lib/schedule";
 import { allChapterStudies, allDailyReviews } from "@/lib/study-state";
 
 export const Route=createFileRoute("/progress")({component:ProgressPage});
@@ -14,16 +15,16 @@ function progressStore():Store{if(typeof window==="undefined")return{};try{retur
 function dateMinus(iso:string,days:number){const [y,m,d]=iso.split("-").map(Number);const x=new Date(Date.UTC(y!,m!-1,d!-days));return x.toISOString().slice(0,10)}
 
 function ProgressPage(){
-  const today=berlinToday();const [store,setStore]=useState<Store>({});const [savedCount,setSavedCount]=useState(0);const [notes,setNotes]=useState(0);const [reviews,setReviews]=useState(0);
-  useEffect(()=>{setStore(progressStore());setSavedCount(loadSavedVerses().length);setNotes(allChapterStudies().filter(s=>Object.values(s.reflections).some(Boolean)||s.prayer||s.intention).length);setReviews(allDailyReviews().filter(r=>r.takeaway||r.gratitude||r.prayer).length)},[]);
+  const today=berlinToday();const [store,setStore]=useState<Store>({});const [savedCount,setSavedCount]=useState(0);const [notes,setNotes]=useState(0);const [reviews,setReviews]=useState(0);const [settings,setSettings]=useState<AppSettings>(DEFAULT_SETTINGS);
+  useEffect(()=>{setSettings(loadSettings());setStore(progressStore());setSavedCount(loadSavedVerses().length);setNotes(allChapterStudies().filter(s=>Object.values(s.reflections).some(Boolean)||s.prayer||s.intention).length);setReviews(allDailyReviews().filter(r=>r.takeaway||r.gratitude||r.prayer).length)},[]);
   const stats=useMemo(()=>{
     let totalComplete=0;for(const status of Object.values(store))if(status==="complete")totalComplete++;
-    let streak=0;for(let i=0;i<400;i++){const date=dateMinus(today,i);const plan=getPlanForDate(date);if(!plan)break;const ids=plan.chapters.map(c=>`${date}|${passageId(c.usfm,c.chapter)}`);const complete=ids.filter(id=>store[id]==="complete").length;if(complete===0)break;streak++;}
+    let streak=0;for(let i=0;i<400;i++){const date=dateMinus(today,i);const readings=scheduledChapters(date,settings);if(!readings.length)continue;const ids=readings.map(c=>`${date}|${passageId(c.usfm,c.chapter)}`);const complete=ids.filter(id=>store[id]==="complete").length;if(complete===0)break;streak++;}
     const last30=Array.from({length:30},(_,i)=>dateMinus(today,29-i));
-    const daily=last30.map(date=>{const plan=getPlanForDate(date);const ids=plan?.chapters.map(c=>`${date}|${passageId(c.usfm,c.chapter)}`)??[];return {date,done:ids.filter(id=>store[id]==="complete").length,total:ids.length}});
+    const daily=last30.map(date=>{const readings=scheduledChapters(date,settings);const ids=readings.map(c=>`${date}|${passageId(c.usfm,c.chapter)}`)??[];return {date,done:ids.filter(id=>store[id]==="complete").length,total:ids.length}});
     const done30=daily.reduce((a,x)=>a+x.done,0);const total30=daily.reduce((a,x)=>a+x.total,0);
     return{totalComplete,streak,daily,done30,total30};
-  },[store,today]);
+  },[store,today,settings]);
   const monthPct=stats.total30?(stats.done30/stats.total30)*100:0;
   return <main className="mx-auto min-h-screen w-full max-w-2xl px-4 pb-nav pt-8 sm:px-6">
     <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Your journey</p><h1 className="mt-1 font-[family-name:var(--font-scripture)] text-4xl font-semibold">Progress</h1><p className="mt-2 text-sm text-muted-foreground">A gentle record of consistency and learning. Progress is information, not pressure.</p>

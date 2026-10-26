@@ -1,4 +1,5 @@
 import type { StudyMode } from "./study-state";
+import { DEFAULT_PERSONAL_PLAN, type PersonalPlan } from "./personal-plan";
 
 export type ThemeMode = "system" | "light" | "dark" | "sepia";
 export type HighlightColor = "yellow" | "green" | "blue" | "pink" | "purple";
@@ -21,6 +22,8 @@ export type AppSettings = {
   timezone: string;
   chaptersPerDay: number;
   activeTracks: string[];
+  readingPlanMode: "original" | "personal";
+  personalReadingPlan: PersonalPlan;
 };
 
 export type SavedVerse = {
@@ -54,6 +57,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   eveningReminderTime: "19:00",
   timezone: "Europe/Berlin",
   chaptersPerDay: 7,
+  readingPlanMode: "original",
+  personalReadingPlan: DEFAULT_PERSONAL_PLAN,
   activeTracks: ["Law", "History", "Psalms", "Wisdom", "Prophets", "Gospels", "Acts & Epistles"],
 };
 

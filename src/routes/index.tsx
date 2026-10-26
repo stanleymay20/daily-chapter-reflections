@@ -12,7 +12,8 @@ import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { pickDefaultVersion, useProgress, useSelectedVersion } from "@/hooks/useReadingState";
 import { DEFAULT_SETTINGS, loadSettings, type AppSettings } from "@/lib/app-state";
-import { berlinToday, chapterLabel, formatBerlinDate, getPlanForDate, passageId } from "@/lib/schedule";
+import { berlinToday, chapterLabel, formatBerlinDate, passageId } from "@/lib/schedule";
+import { scheduledChapters } from "@/lib/personal-plan";
 import { estimateMinutes, loadDailyReview, saveDailyReview } from "@/lib/study-state";
 import { encodeApiError, normalizeApiError } from "@/lib/youversion";
 import { listBiblesFn } from "@/lib/youversion.functions";
@@ -26,7 +27,6 @@ const statusIcon={not_started:Circle,reading:CircleDot,complete:Check} as const;
 
 function Home(){
   const today=berlinToday();
-  const plan=getPlanForDate(today);
   const {statusOf,completedCount}=useProgress(today);
   const {versionId,select,ready}=useSelectedVersion();
   const [settings,setSettings]=useState<AppSettings>(DEFAULT_SETTINGS);
@@ -37,11 +37,7 @@ function Home(){
   const biblesQuery=useQuery({queryKey:["bibles","english"],queryFn:async()=>{const res=await listBibles();if(!res.ok)throw new Error(encodeApiError(res.error));return Array.isArray(res.bibles)?res.bibles:[];},retry:false,staleTime:3600000});
   const bibles=Array.isArray(biblesQuery.data)?biblesQuery.data:[];
   const active=useMemo(()=>ready?pickDefaultVersion(bibles,versionId):undefined,[bibles,versionId,ready]);
-  const chapters=useMemo(()=>{
-    const all=plan?.chapters??[];
-    const selected=all.filter(c=>settings.activeTracks.includes(c.track));
-    return selected.slice(0,Math.max(1,settings.chaptersPerDay));
-  },[plan,settings]);
+  const chapters=useMemo(()=>scheduledChapters(today,settings),[today,settings]);
   const passages=chapters.map(c=>passageId(c.usfm,c.chapter));
   const done=completedCount(passages);
   const percent=passages.length?(done/passages.length)*100:0;
@@ -59,6 +55,7 @@ function Home(){
     </header>
 
     <section className="mt-6">
+      <div className="mb-3 flex items-center justify-between gap-2"><p className="text-xs text-muted-foreground">{settings.readingPlanMode === "personal" ? settings.personalReadingPlan?.name || "My reading plan" : "Original seven-track plan"}</p><Link to="/plans" className="text-xs font-semibold text-primary underline">Choose your plan</Link></div>
       <div className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-3"><div className="min-w-0"><h2 className="font-[family-name:var(--font-scripture)] text-2xl font-semibold">Today's chapters</h2></div>{biblesQuery.isLoading?<Skeleton className="h-9 w-28"/>:bibles.length>0?<TranslationPicker bibles={bibles} {...(active?{value:active.id}:{})} onChange={select}/>:null}</div>
       <p className="mt-1 text-xs text-muted-foreground">Source: YouVersion Platform. Study guidance is always shown separately.</p>
 

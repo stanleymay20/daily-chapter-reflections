@@ -19,7 +19,8 @@ import { useStudySequence } from "@/hooks/useStudySequence";
 import { StudyVideoAid } from "@/components/StudyVideoAid";
 import { loadSavedVerses, loadSettings, readingWidthClass, safeShareText, upsertSavedVerse, type HighlightColor, type SavedVerse } from "@/lib/app-state";
 import { askChapterFn, generateInsightsFn, type AskChapterAnswer, type StudyInsights } from "@/lib/insights.functions";
-import { berlinToday, chapterLabel, findChapterByPassageId, getPlanForDate, passageId } from "@/lib/schedule";
+import { berlinToday, chapterLabel, findChapterByPassageId, passageId } from "@/lib/schedule";
+import { scheduledChapters } from "@/lib/personal-plan";
 import { chooseDefaultVoice, getEnglishVoices, loadSpeechVoice, normalizeSpeechText, saveSpeechVoice } from "@/lib/speech";
 import { loadCachedStudyGuide, saveCachedStudyGuide, type StudyImageVersion } from "@/lib/study-media";
 import { loadChapterStudy, saveChapterStudy, type ChapterStudy } from "@/lib/study-state";
@@ -49,7 +50,7 @@ function Reader(){
   const {passage}=Route.useParams();
   const search=Route.useSearch();
   const today=berlinToday();
-  const studyDate=search.date&&getPlanForDate(search.date)?search.date:today;
+  const studyDate=search.date&&/^\d{4}-\d{2}-\d{2}$/.test(search.date)?search.date:today;
   const found=findChapterByPassageId(passage);
   const label=found?`${found.ref.book} ${found.ref.chapter}`:passage;
   const {statusOf,setStatus}=useProgress(studyDate);
@@ -117,7 +118,7 @@ function Reader(){
 
   const verses=passageQuery.data?.verses??[];
   const copyright=passageQuery.data?.copyright||active?.copyright||"";
-  const currentPlan=getPlanForDate(studyDate)?.chapters??[];
+  const currentPlan=scheduledChapters(studyDate,settings);
   const currentIndex=currentPlan.findIndex(c=>passageId(c.usfm,c.chapter)===passage);
   const nextRef=currentIndex>=0?currentPlan[currentIndex+1]:undefined;
   const nextPassage=nextRef?passageId(nextRef.usfm,nextRef.chapter):null;
