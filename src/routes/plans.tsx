@@ -17,7 +17,10 @@ function PlansPage() {
   useEffect(() => {
     const saved = loadSettings();
     setSettings(saved);
-    setDraft(normalizePersonalPlan(saved.personalReadingPlan ?? { ...DEFAULT_PERSONAL_PLAN, startDate: berlinToday() }));
+    const existing = normalizePersonalPlan(saved.personalReadingPlan);
+    const blank = saved.readingPlanMode === "unselected" ||
+      (saved.readingPlanMode !== "personal" && JSON.stringify(existing) === JSON.stringify(DEFAULT_PERSONAL_PLAN));
+    setDraft(blank ? { ...DEFAULT_PERSONAL_PLAN, startDate: berlinToday(), books: [] } : existing);
   }, []);
   const commit = (patch: Partial<AppSettings>) => {
     const next = { ...settings, ...patch };
