@@ -549,8 +549,14 @@ describe("pipeline engine (mocked providers)", () => {
     let uploadsAttempted = 0;
     h.db.upload = async (path, bytes, contentType) => {
       uploadsAttempted++;
-      if (path.endsWith(".png") && stillFailures-- > 0) throw new Error("asset upload failed (503)");
-      if (path.endsWith(".wav") && narrationFailures-- > 0) throw new Error("asset upload failed (502)");
+      if (path.endsWith(".png") && stillFailures > 0) {
+        stillFailures--;
+        throw new Error("asset upload failed (503)");
+      }
+      if (path.endsWith(".wav") && narrationFailures > 0) {
+        narrationFailures--;
+        throw new Error("asset upload failed (502)");
+      }
       await original(path, bytes, contentType);
     };
     const done = await runToEnd(h);
