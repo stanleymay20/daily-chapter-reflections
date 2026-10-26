@@ -511,6 +511,23 @@ export function retryReset<T extends SceneState>(scenes: T[], stage: SequenceSta
   );
 }
 
+export function planRetryBlock(input: {
+  status: string;
+  stage: SequenceStage | null;
+  budget?: Partial<CallCounts> | null;
+  usage?: Partial<CallCounts> | null;
+}): "unstarted" | "budget" | null {
+  if (input.status !== "failed" || input.stage !== "planning") return null;
+  // An attempt without a single planning call was never charged a provider call.
+  // It may have failed BEFORE daily-video quota authorization. It must not
+  // transition directly to generating through the unmetered stage-retry route.
+  const spent = input.usage?.plan;
+  if (!Number.isSafeInteger(spent) || spent! <= 0) return "unstarted";
+  const limit = input.budget?.plan;
+  if (!Number.isSafeInteger(limit) || limit! - spent! < 2) return "budget";
+  return null;
+}
+
 export function canSpend(usage: Partial<CallCounts>, budget: Partial<CallCounts>, kind: CallKind) {
   return (usage[kind] ?? 0) < (budget[kind] ?? 0);
 }

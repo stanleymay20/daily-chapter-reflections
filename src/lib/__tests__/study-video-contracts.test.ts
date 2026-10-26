@@ -67,6 +67,10 @@ describe("video aid security and cost contract", () => {
     expect(migration).toContain("'image', 'video'");
     expect(migration).toContain("revoke all on function public.consume_ai_quota(text) from public, anon");
     expect(startRoute).toContain('authorizeAiRequest(request, "video")');
+    // A denied start is never a failed stage that can spend providers via retry.
+    expect(startRoute).toContain('status: "cancelled"');
+    expect(startRoute).not.toContain('status: "failed", stage_error: access.error');
+    expect(startRoute).toContain("retryAfter");
     expect(startRoute).not.toContain('"image")');
   });
 

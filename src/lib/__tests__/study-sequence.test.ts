@@ -13,6 +13,7 @@ import {
   groundingIssues,
   groundingSources,
   modeForStudy,
+  planRetryBlock,
   nextStage,
   parseGroundingVerdict,
   qualityIssues,
@@ -433,6 +434,32 @@ describe("pipeline engine (mocked providers)", () => {
     h.video.status = "cancelled";
     await advanceSequence(h.engine, "v1");
     expect(h.calls["json"]).toBe(0);
+  });
+
+  it("forbids retrying legacy quota-denied jobs with zero provider calls", async () => {
+    const h = harness();
+    h.video.status = "failed";
+    h.video.stage = "planning";
+    h.video.stage_error = "You have reached today's AI study limit.";
+    h.video.call_usage.plan = 0;
+    expect(planRetryBlock({
+      status: h.video.status, stage: h.video.stage,
+      usage: h.video.call_usage, budget: h.video.call_budget,
+    })).toBe("unstarted");
+    const retry = await retrySequence(h.db, "v1");
+    expect(retry).toBeNull();
+    expect(h.video.status).toBe("failed");
+    expect(h.calls["json"]).toBe(0);
+  });
+
+  it("separates legitimate funded planning retries from unauthorized attempts", () => {
+    const base = { status: "failed", stage: "planning" as const,
+      budget: { plan: 4 }, usage: { plan: 1 } };
+    expect(planRetryBlock(base)).toBeNull();
+    expect(planRetryBlock({ ...base, usage: { plan: 3 } })).toBe("budget");
+    expect(planRetryBlock({ ...base, usage: { plan: 0 } })).toBe("unstarted");
+    expect(planRetryBlock({ ...base, stage: "visuals" })).toBeNull();
+    expect(planRetryBlock({ ...base, status: "generating" })).toBeNull();
   });
 
   it("refuses a failed planning retry when it cannot pay for both plan and audit", async () => {

@@ -2,7 +2,7 @@ import { z } from "zod";
 
 import { publicSupabasePublishableKey, publicSupabaseUrl } from "@/integrations/supabase/public-config";
 import { studyGuideHash, visualStudyGuide } from "./study-guide";
-import { groundingSources, type GroundingSources } from "./study-sequence.shared";
+import { groundingSources, planRetryBlock, type GroundingSources } from "./study-sequence.shared";
 import { ProviderError, advanceSequence, gatewayProviders, restDb, retrySequence, type AdvanceResult } from "./study-sequence.server";
 
 export const jobSchema = z.object({ jobId: z.string().uuid(), reference: z.string().trim().min(1).max(120).optional() });
@@ -98,9 +98,14 @@ export async function handleRetry(request: Request, input: z.infer<typeof jobSch
   if (!auth) return json("Sign in in Settings to use AI study tools.", 401);
   const db = restDb(auth);
   const current = await db.loadVideo(input.jobId).catch(() => null);
-  if (current?.kind === "sequence" && current.status === "failed" && current.stage === "planning" &&
-      (current.call_budget.plan ?? 0) - (current.call_usage.plan ?? 0) < 2) {
-    return json("This planning attempt has too few AI requests left for a draft and mandatory grounding audit. Discard it and start a new version.", 409);
+  const blocked = current?.kind === "sequence"
+    ? planRetryBlock({ status: current.status, stage: current.stage, budget: current.call_budget, usage: current.call_usage })
+    : null;
+  if (blocked === "unstarted") {
+    return json("This attempt never started video generation, often because the hourly or daily video quota was reached. It cannot be retried without authorization. Discard it and start a new attempt after the limit resets.", 409);
+  }
+  if (blocked === "budget") {
+    return json("This planning attempt has too few AI requests left for a draft and mandatory grounding audit. Discard it and start a new version after checking your video quota.", 409);
   }
   const row = await retrySequence(db, input.jobId).catch(() => null);
   if (!row) return json("Only a failed study video with enough remaining budget can be retried.", 409);

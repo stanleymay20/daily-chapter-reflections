@@ -54,8 +54,20 @@ async function post<T>(endpoint: string, body: unknown, signal?: AbortSignal): P
     body: JSON.stringify(body),
     signal: signal ?? null,
   });
-  const payload = (await response.json().catch(() => ({}))) as T & { message?: string };
-  if (!response.ok) throw new Error(payload.message || `Study video request failed (${response.status}).`);
+  const payload = (await response.json().catch(() => ({}))) as T & { message?: string; retryAfter?: number };
+  if (!response.ok) {
+    let message = payload.message || `Study video request failed (${response.status}).`;
+    if (response.status === 429 && endpoint === "/api/study-video/sequence-start" &&
+        typeof payload.retryAfter === "number" && Number.isFinite(payload.retryAfter) &&
+        payload.retryAfter > 0 && payload.retryAfter <= 86400) {
+      // The database supplies the authoritative UTC reset in seconds. Display
+      // the calendar time in the reader's local timezone instead of assuming Berlin.
+      const local = new Date(Date.now() + payload.retryAfter * 1000)
+        .toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+      message += ` Next attempt is available around ${local} (your local time).`;
+    }
+    throw new Error(message);
+  }
   return payload;
 }
 

@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import type { useStudySequence } from "@/hooks/useStudySequence";
 import type { useStudyVideo } from "@/hooks/useStudyVideo";
-import { MODE_SPECS, SEQUENCE_LABEL, estimateFor, type SequenceMode } from "@/lib/study-sequence.shared";
+import { MODE_SPECS, SEQUENCE_LABEL, estimateFor, planRetryBlock, type SequenceMode } from "@/lib/study-sequence.shared";
 import { scenesToVtt } from "@/lib/study-video.shared";
 
 type Sequence = ReturnType<typeof useStudySequence>;
@@ -47,11 +47,14 @@ export function StudyVideoAid({ sequence, legacy, label, poster }: { sequence: S
   const active = sequence.active;
   const stageIndex = STAGES.findIndex((s) => s.id === (active?.stage ?? step?.stage));
   const failed = active?.status === "failed";
-  // Persisted job budgets remain available after refreshing the page.
-  const planBudget = step?.budget.plan ?? active?.budget?.plan;
-  const planUsage = step?.usage.plan ?? active?.usage?.plan;
-  const planningSpent = failed && active?.stage === "planning" && typeof planBudget === "number" &&
-    planBudget - (planUsage ?? 0) < 2;
+  // Read the persisted job's budget after refresh; a current StepView is not
+  // guaranteed for already-failed jobs. This must agree with the server guard.
+  const lastStep = step?.id === active?.id ? step : null;
+  const retryBlock = active ? planRetryBlock({
+    status: active.status, stage: active.stage,
+    budget: lastStep?.budget ?? active.budget,
+    usage: lastStep?.usage ?? active.usage,
+  }) : null;
 
   return (
     <Card className="overflow-hidden">
@@ -90,7 +93,7 @@ export function StudyVideoAid({ sequence, legacy, label, poster }: { sequence: S
             <Button className="min-h-11" variant="outline" size="sm" onClick={() => void sequence.cancel()}>Cancel</Button>
           ) : failed ? (
             <>
-              <Button className="min-h-11" size="sm" disabled={Boolean(planningSpent)} onClick={() => void sequence.retry()}><RotateCcw className="mr-1 size-4" />Retry failed stage</Button>
+              {!retryBlock ? <Button className="min-h-11" size="sm" onClick={() => void sequence.retry()}><RotateCcw className="mr-1 size-4" />Retry failed stage</Button> : null}
               <Button className="min-h-11" variant="outline" size="sm" onClick={() => void sequence.cancel()}>Discard failed attempt</Button>
             </>
           ) : (
@@ -98,7 +101,8 @@ export function StudyVideoAid({ sequence, legacy, label, poster }: { sequence: S
               {sequence.selected && sequence.selected.mode === sequence.mode ? "Create a new version" : "Generate study video"}
             </Button>
           )}
-          {planningSpent ? <p className="basis-full text-xs text-muted-foreground">This attempt cannot afford another draft and the mandatory Scripture-grounding audit. Discard this failed attempt to start a new generation. Your daily video quota and provider credits still apply.</p> : null}
+          {retryBlock === "unstarted" ? <p className="basis-full text-xs text-muted-foreground">This attempt stopped before video generation was authorized. Retrying it would bypass the video allowance. Discard it, then start a new attempt when your hourly/daily limit resets.</p> : null}
+          {retryBlock === "budget" ? <p className="basis-full text-xs text-muted-foreground">Not enough planning requests remain to create and verify another grounded draft. Discard this attempt before trying a new generation, subject to your daily quota.</p> : null}
           {sequence.generating && !step?.worked && step?.waiting === false && step?.status === "generating" ? (
             <Button className="min-h-11" variant="ghost" size="sm" onClick={sequence.resume}>Resume</Button>
           ) : null}
@@ -120,7 +124,7 @@ export function StudyVideoAid({ sequence, legacy, label, poster }: { sequence: S
               Visuals {step.visuals.done}/{step.visuals.total} · Narration {step.narration.done}/{step.narration.total}
               {step.usage ? ` · ${Object.values(step.usage).reduce((n, v) => n + (v ?? 0), 0)} AI requests used` : ""}
             </p>
-          ) : <p className="mt-2 text-xs text-muted-foreground">Checking the plan against your saved guide before anything else is generated. You can keep reading.</p>}
+          ) : <p className="mt-2 text-xs text-muted-foreground">{failed ? "Planning stopped before any new visuals or narration were generated." : "Checking the plan against your saved guide before anything else is generated. You can keep reading."}</p>}
         </div>
       ) : null}
 
