@@ -51,6 +51,7 @@ export function StudyVideoAid({ sequence, legacy, label, poster }: { sequence: S
   // Read the persisted job's budget after refresh; a current StepView is not
   // guaranteed for already-failed jobs. This must agree with the server guard.
   const lastStep = step?.id === active?.id ? step : null;
+  const moderationBlocked = failed && /safety filter blocked/i.test(active?.error ?? "");
   const retryBlock = active ? planRetryBlock({
     status: active.status, stage: active.stage,
     budget: lastStep?.budget ?? active.budget ?? null,
@@ -94,7 +95,7 @@ export function StudyVideoAid({ sequence, legacy, label, poster }: { sequence: S
             <Button className="min-h-11" variant="outline" size="sm" onClick={() => void sequence.cancel()}>Cancel</Button>
           ) : failed ? (
             <>
-              {!retryBlock ? <Button className="min-h-11" size="sm" onClick={() => void sequence.retry()}><RotateCcw className="mr-1 size-4" />Retry failed stage</Button> : null}
+              {!retryBlock && !moderationBlocked ? <Button className="min-h-11" size="sm" onClick={() => void sequence.retry()}><RotateCcw className="mr-1 size-4" />Retry failed stage</Button> : null}
               <Button className="min-h-11" variant="outline" size="sm" onClick={() => void sequence.cancel()}>Discard failed attempt</Button>
             </>
           ) : sequence.videoQuotaUntil ? (
@@ -114,6 +115,7 @@ export function StudyVideoAid({ sequence, legacy, label, poster }: { sequence: S
               {sequence.selected && sequence.selected.mode === sequence.mode ? "Create a new version" : "Generate study video"}
             </Button>
           )}
+          {moderationBlocked ? <p className="basis-full text-xs text-muted-foreground">The motion provider blocked a scene for safety reasons. The same prompt will not be retried. Discard this attempt and review the study guide before starting a different video.</p> : null}
           {retryBlock === "unstarted" ? <p className="basis-full text-xs text-muted-foreground">This attempt stopped before video generation was authorized. Retrying it would bypass the video allowance. Discard it, then start a new attempt when your hourly/daily limit resets.</p> : null}
           {retryBlock === "budget" ? <p className="basis-full text-xs text-muted-foreground">Not enough planning requests remain to create and verify another grounded draft. Discard this attempt before trying a new generation, subject to your daily quota.</p> : null}
           {sequence.generating && !step?.worked && step?.waiting === false && step?.status === "generating" ? (

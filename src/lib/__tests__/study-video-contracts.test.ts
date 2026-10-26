@@ -72,6 +72,9 @@ describe("video aid security and cost contract", () => {
     expect(sequenceStartRoute).toContain('status: "cancelled"');
     expect(sequenceStartRoute).not.toContain('status: "failed", stage_error: access.error');
     expect(sequenceStartRoute).toContain("retryAfter");
+    const retryHandler = src("../study-sequence-routes.server.ts");
+    expect(retryHandler).toContain('safety filter blocked');
+    expect(retryHandler).toContain("The identical prompt cannot be retried.");
     expect(startRoute).not.toContain('"image")');
   });
 

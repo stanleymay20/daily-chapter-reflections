@@ -107,6 +107,12 @@ export async function handleRetry(request: Request, input: z.infer<typeof jobSch
   if (blocked === "budget") {
     return json("This planning attempt has too few AI requests left for a draft and mandatory grounding audit. Discard it and start a new version after checking your video quota.", 409);
   }
+  if (current?.kind === "sequence" && current.status === "failed" && current.stage === "visuals") {
+    const scenes = await db.loadScenes(input.jobId).catch(() => []);
+    if (scenes.some((s) => s.visual_status === "failed" && /safety filter blocked/i.test(s.last_error ?? ""))) {
+      return json("The motion provider rejected a scene for safety reasons. The identical prompt cannot be retried. Discard this attempt and review the chapter guide before generating another video.", 409);
+    }
+  }
   const row = await retrySequence(db, input.jobId).catch(() => null);
   if (!row) return json("Only a failed study video with enough remaining budget can be retried.", 409);
   return Response.json({ id: row.id, status: row.status, stage: row.stage });
