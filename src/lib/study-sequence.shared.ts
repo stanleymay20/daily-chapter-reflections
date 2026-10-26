@@ -543,12 +543,19 @@ Rules (a validator rejects any violation; nothing is repaired):
 
 /** Safe, short scene-specific diagnostics rather than repeated generic failures. */
 export function explainPlanIssues(issues: PlanIssue[]): string {
-  const unique = new Set<string>();
+  const categories = new Map<string, { detail: string; scenes: number[]; general: boolean }>();
   for (const issue of issues) {
-    unique.add(`${issue.scene === null ? "Plan" : `Scene ${issue.scene + 1}`} [${issue.code}]: ${issue.detail}`);
-    if (unique.size === 5) break;
+    const current = categories.get(issue.code) ?? { detail: issue.detail, scenes: [], general: false };
+    if (issue.scene === null) current.general = true;
+    else if (!current.scenes.includes(issue.scene + 1)) current.scenes.push(issue.scene + 1);
+    categories.set(issue.code, current);
   }
-  return [...unique].join(" ");
+  return [...categories.entries()].slice(0, 5).map(([code, item]) => {
+    const location = item.scenes.length
+      ? `Scene${item.scenes.length > 1 ? "s" : ""} ${item.scenes.slice(0, 5).join(", ")}${item.scenes.length > 5 ? " and more" : ""}`
+      : "Plan";
+    return `${location} [${code}]: ${item.detail}`;
+  }).join(" ");
 }
 
 export function groundingCheckInstructions() {

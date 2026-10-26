@@ -71,9 +71,14 @@ export function personalReadingsForDate(date: string, configuration: PersonalPla
   if (elapsed > 36_525) return [];
   const weekdaySet = new Set(plan.weekdays);
   if (!weekdaySet.has(new Date(current).getUTCDay())) return [];
-  let studyDays = 0;
-  for (let day = 0; day <= elapsed; day++) {
-    if (weekdaySet.has(new Date(start + day * DAY_MS).getUTCDay())) studyDays++;
+  // Constant-time calculation keeps calendars responsive even decades ahead.
+  const span = elapsed + 1;
+  const wholeWeeks = Math.floor(span / 7);
+  const rest = span % 7;
+  const firstWeekday = new Date(start).getUTCDay();
+  let studyDays = wholeWeeks * weekdaySet.size;
+  for (let day = 0; day < rest; day++) {
+    if (weekdaySet.has((firstWeekday + day) % 7)) studyDays++;
   }
   const chapters = plan.books.flatMap(selected => {
     const book = BOOK_LIBRARY.find(item => item.usfm === selected.usfm);
