@@ -333,6 +333,11 @@ async function fail(ctx: EngineContext, row: SequenceRow, message: string) {
 
 /** Bounded deterministic repair passes per planning stage (each consumes a capped plan call). */
 export const MAX_PLAN_REPAIRS = 2;
+/** Bounded corrections after a negative grounding audit (each costs a repair call plus a fresh audit call). */
+export const MAX_AUDIT_REPAIRS = 1;
+
+const AUDIT_REPAIR_TASK =
+  "\nREPAIR TASK (grounding audit): An independent audit found unsupported content in the listed scenes. For each listed scene, remove or replace ONLY the unsupported detail in its narration or visualBrief with content directly supported by that scene's cited sources and CHAPTER TEXT, or with neutral period setting. Do not add any new facts, names, places, numbers, causes or quotations. Keep scenes the audit did not list unchanged. Keep scene count, order, word budget and roles. Return corrected JSON in the same schema.";
 
 async function runPlanning(ctx: EngineContext, row: SequenceRow): Promise<AdvanceResult> {
   const mode = row.study_mode;
@@ -386,17 +391,43 @@ async function runPlanning(ctx: EngineContext, row: SequenceRow): Promise<Advanc
     issues = validatePlan(plan, mode, sources, { reference: ctx.reference, chapterText });
   }
 
-  // Bounded semantic entailment audit: one call, fail closed on incomplete or negative verdicts.
-  if (!(await ctx.db.consumeCall(row.id, "plan"))) return { row: await fail(ctx, row, "This generation reached its planning call limit."), scenes: [], worked: true, waiting: false };
-  let verdict: PlanIssue[] | null;
-  try {
-    const auditInput = `${input}\n\nSCRIPT:\n${plan.scenes.map((s, i) => `#${i} claimType=${s.claimType} sources=${s.sourceRefs.join(",")}\nnarration: ${s.narration}\nvisual: ${s.visualBrief}`).join("\n\n")}`;
-    verdict = parseGroundingVerdict(await ctx.providers.json(groundingCheckInstructions(), auditInput, "grounding_audit", GROUNDING_JSON_SCHEMA, ctx.signal), plan.scenes.length);
-  } catch (error) {
-    return { row: await fail(ctx, row, safeError(error, "The grounding check could not run.")), scenes: [], worked: true, waiting: false };
+  // Bounded semantic entailment audit, fail closed on incomplete or negative verdicts. A rejected
+  // audit gets at most MAX_AUDIT_REPAIRS corrections (repair + fresh audit, both capped plan calls);
+  // the corrected plan must pass every deterministic check and a complete new audit.
+  for (let auditRepairs = 0; ; auditRepairs += 1) {
+    if (!(await ctx.db.consumeCall(row.id, "plan"))) return { row: await fail(ctx, row, "This generation reached its planning call limit."), scenes: [], worked: true, waiting: false };
+    let verdict: PlanIssue[] | null;
+    try {
+      const auditInput = `${input}\n\nSCRIPT:\n${plan.scenes.map((s, i) => `#${i} claimType=${s.claimType} sources=${s.sourceRefs.join(",")}\nnarration: ${s.narration}\nvisual: ${s.visualBrief}`).join("\n\n")}`;
+      verdict = parseGroundingVerdict(await ctx.providers.json(groundingCheckInstructions(), auditInput, "grounding_audit", GROUNDING_JSON_SCHEMA, ctx.signal), plan.scenes.length);
+    } catch (error) {
+      return { row: await fail(ctx, row, safeError(error, "The grounding check could not run.")), scenes: [], worked: true, waiting: false };
+    }
+    if (!verdict) return { row: await fail(ctx, row, "The grounding check returned an incomplete audit."), scenes: [], worked: true, waiting: false };
+    if (!verdict.length) break;
+
+    const latest = await ctx.db.loadVideo(row.id);
+    const planningCallsLeft = (latest?.call_budget.plan ?? 0) - (latest?.call_usage.plan ?? 0);
+    if (auditRepairs >= MAX_AUDIT_REPAIRS || planningCallsLeft < 2 || !(await ctx.db.consumeCall(row.id, "plan"))) {
+      return { row: await fail(ctx, row, `The grounding audit rejected claims. ${explainPlanIssues(verdict)}`), scenes: [], worked: true, waiting: false, issues: verdict };
+    }
+    try {
+      const findings = verdict.map((issue) => `scene=${issue.scene}: ${issue.detail}`).join("\n");
+      const repaired = parsePlan(await ctx.providers.json(
+        planInstructions(mode, ctx.reference) + AUDIT_REPAIR_TASK,
+        `${input}\n\nAUDITED DRAFT:\n${JSON.stringify(plan)}\n\nGROUNDING AUDIT FINDINGS (scene numbers are 0-based):\n${findings}`,
+        "study_sequence_plan",
+        PLAN_JSON_SCHEMA,
+        ctx.signal,
+      ));
+      if (!repaired) throw new Error("Repair response had an invalid shape.");
+      plan = differentiateVisualBriefs(canonicalizeVerbatimQuote(repaired, chapterText));
+    } catch (error) {
+      return { row: await fail(ctx, row, safeError(error, "The study plan could not be corrected after the grounding audit.")), scenes: [], worked: true, waiting: false, issues: verdict };
+    }
+    const recheck = validatePlan(plan, mode, sources, { reference: ctx.reference, chapterText });
+    if (recheck.length) return { row: await fail(ctx, row, `The plan corrected after the grounding audit failed validation. ${explainPlanIssues(recheck)}`), scenes: [], worked: true, waiting: false, issues: recheck };
   }
-  if (!verdict) return { row: await fail(ctx, row, "The grounding check returned an incomplete audit."), scenes: [], worked: true, waiting: false };
-  if (verdict.length) return { row: await fail(ctx, row, `The grounding audit rejected claims. ${explainPlanIssues(verdict)}`), scenes: [], worked: true, waiting: false, issues: verdict };
 
   const rows = await Promise.all(plan.scenes.map(async (s, index) => {
     const needsVisual = s.visualKind === "still" || s.visualKind === "clip";
