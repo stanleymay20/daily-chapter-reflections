@@ -64,6 +64,13 @@
       "when": 1793148682802,
       "tag": "0008_study_video_plan_budget",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1793149205001,
+      "tag": "0009_study_video_daily_allowance",
+      "breakpoints": true
     }
   ]
 }
