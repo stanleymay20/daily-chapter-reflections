@@ -749,6 +749,54 @@ describe("pipeline engine (mocked providers)", () => {
     expect(h.video.call_usage.plan).toBe(3); // draft, repair, independent audit
   });
 
+  it("corrects a plan once after a negative grounding audit and re-audits before any asset spend", async () => {
+    const h = harness();
+    let audits = 0;
+    let drafts = 0;
+    const original = h.engine.providers.json;
+    h.engine.providers.json = async (...args) => {
+      if (args[2] === "grounding_audit") {
+        audits++;
+        if (audits === 1) return { scenes: goodPlan().scenes.map((_, index) => ({ index, supported: index !== 1, reason: index === 1 ? "Visual asserts an unsupported detail." : "" })) };
+        return original(...args);
+      }
+      drafts++;
+      if (drafts === 2) expect(String(args[1])).toContain("GROUNDING AUDIT FINDINGS");
+      return goodPlan();
+    };
+    const result = await runToEnd(h);
+    expect(result.row.status).toBe("completed");
+    expect(audits).toBe(2);
+    expect(h.video.call_usage.plan).toBe(4); // draft, audit, correction, fresh audit
+  });
+
+  it("fails closed when the corrected plan is still rejected by the audit, within the planning ceiling", async () => {
+    const h = harness();
+    const original = h.engine.providers.json;
+    h.engine.providers.json = async (...args) => {
+      if (args[2] === "grounding_audit") return { scenes: goodPlan().scenes.map((_, index) => ({ index, supported: index !== 2, reason: "Unsupported." })) };
+      return original(...args);
+    };
+    let r = await advanceSequence(h.engine, "v1");
+    r = await advanceSequence(h.engine, "v1");
+    expect(r.row.status).toBe("failed");
+    expect(r.row.stage_error).toContain("The grounding audit rejected claims.");
+    expect(h.video.call_usage.plan).toBe(4);
+    expect(h.video.call_usage.plan).toBeLessThanOrEqual(MODE_SPECS.quick.budget.plan);
+    expect(h.calls["still"]).toBe(0);
+    expect(h.calls["speech"]).toBe(0);
+  });
+
+  it("lets the audit accept neutral period backdrop while still rejecting unsupported specifics", async () => {
+    const { groundingCheckInstructions, planInstructions, NEUTRAL_PERIOD_SETTING } = await import("../study-sequence.shared");
+    const audit = groundingCheckInstructions();
+    expect(audit).toContain(NEUTRAL_PERIOD_SETTING);
+    expect(audit).toContain("stone walls of a hilltop city");
+    expect(audit).toMatch(/reject unsupported characters, actions, events, named places/);
+    expect(planInstructions("deep", "Joshua 10")).toContain(NEUTRAL_PERIOD_SETTING);
+  });
+
+
   it("rejects an ungrounded draft plan before any visual or narration spend", async () => {
     const h = harness();
     h.engine.providers.json = async () => ({ ...goodPlan(), scenes: goodPlan().scenes.map((s, i) => (i === 1 ? { ...s, narration: `${s.narration} Pharaoh rides a chariot through Memphis.` } : s)) });
