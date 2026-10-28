@@ -836,3 +836,15 @@ describe("planning ceiling", () => {
     for (const spec of Object.values(MODE_SPECS)) expect(spec.budget.plan).toBe(6);
   });
 });
+
+describe("video daily allowance (0009)", () => {
+  it("allows 3 video aids per hour and 8 per day, with mirrored migration copies", async () => {
+    const { readFileSync } = await import("node:fs");
+    const { resolve } = await import("node:path");
+    const d = readFileSync(resolve(__dirname, "../../../drizzle/migrations/0009_study_video_daily_allowance.sql"), "utf8");
+    const s = readFileSync(resolve(__dirname, "../../../supabase/migrations/20261028010000_study_video_daily_allowance.sql"), "utf8");
+    expect(s).toBe(d);
+    expect(d).toContain("when 'video' then v_hour_limit := 3; v_day_limit := 8;");
+    expect(d).toContain("revoke all on function public.consume_ai_quota(text) from public, anon;");
+  });
+});
