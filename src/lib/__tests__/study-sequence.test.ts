@@ -755,7 +755,17 @@ describe("pipeline engine (mocked providers)", () => {
     const r = await advanceSequence(h.engine, "v1");
     expect(r.row.status).toBe("failed");
     expect(r.issues?.some((i) => i.code === "unsupported_entity")).toBe(true);
-    expect(h.video.call_usage.plan).toBe(2); // rejected draft and one corrective call only
+    expect(h.video.call_usage.plan).toBe(3); // rejected draft and at most two corrective calls; never reaches the audit
+    expect(r.row.stage_error).toContain("The repaired plan still has issues.");
+  });
+
+  it("names the earlier scene a duplicate repeats and gives a concrete fix", async () => {
+    const { qualityIssues, repairGuidance } = await import("../study-sequence.shared");
+    const plan = goodPlan();
+    const dup = { ...plan, scenes: plan.scenes.map((s, i) => (i === 2 ? { ...s, narration: plan.scenes[1]!.narration } : s)) };
+    const issue = qualityIssues(dup, "quick", sources).find((i) => i.code === "duplicate");
+    expect(issue?.detail).toBe("Scene repeats scene 2.");
+    expect(repairGuidance([issue!])).toContain("different event, instruction or aspect");
   });
 });
 
