@@ -436,10 +436,10 @@ export function qualityIssues(plan: SequencePlan, mode: SequenceMode, sources: G
       const y = contentStems(scenes[b]!.narration);
       const inter = [...x].filter((s) => y.has(s)).length;
       const union = new Set([...x, ...y]).size || 1;
-      if (inter / union >= 0.6) push(b, "duplicate", "Scene repeats an earlier scene.");
+      if (inter / union >= 0.6) push(b, "duplicate", `Scene repeats scene ${a + 1}.`);
       const visualA = scenes[a]!.visualBrief.trim().toLowerCase().replace(/\s+/g, " ");
       const visualB = scenes[b]!.visualBrief.trim().toLowerCase().replace(/\s+/g, " ");
-      if (visualA && visualA === visualB) push(b, "duplicate_visual", "Visual repeats an earlier scene.");
+      if (visualA && visualA === visualB) push(b, "duplicate_visual", `Visual repeats scene ${a + 1}.`);
     }
   }
 
@@ -672,7 +672,8 @@ Automatic checks that reject the plan (follow them exactly):
 - Dates, years, centuries, generations and numerals only when the cited source text contains them.
 - Every capitalised name must appear in the cited sources.
 - Narration must reuse the key nouns and verbs of its cited sources: about half of a chapter scene's content words should appear in its sources. Paraphrase closely; do not summarise in fresh vocabulary.
-- The closing narration must explicitly invite the viewer to "read" the chapter.`;
+- The closing narration must explicitly invite the viewer to "read" the chapter.
+- No two scenes may share most of their content words. Give each scene a distinct focus (a different event, instruction, response or significance). For short chapters, use different aspects rather than restating the same summary.`;
 }
 
 /** Concrete, code-specific repair instructions so a single repair pass can resolve deterministic issues. */
@@ -688,6 +689,8 @@ const REPAIR_HINTS: Record<string, string> = {
   fabricated_quote: "Remove the quotation or copy it verbatim from CHAPTER TEXT into both narration (double quotes) and scriptureQuote.",
   unlabeled_quote: "Copy the exact quoted words into scriptureQuote.",
   word_budget: "Adjust scene narration so the total word count is within the stated budget.",
+  duplicate: "Rewrite each listed scene so it covers a different event, instruction or aspect than the scene it repeats (for example: what happens, what is commanded, how people respond, why it matters in the chapter). If the chapter has too few events, keep the minimum scene count and give each scene a distinct focus instead of restating.",
+  duplicate_visual: "Give each listed scene a visual brief with a different grounded subject or composition from the scene it repeats.",
 };
 
 export function repairGuidance(issues: PlanIssue[]): string {

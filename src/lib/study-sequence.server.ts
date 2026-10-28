@@ -331,6 +331,9 @@ async function fail(ctx: EngineContext, row: SequenceRow, message: string) {
   return updated ?? { ...row, status: "failed" as const, stage_error: message };
 }
 
+/** Bounded deterministic repair passes per planning stage (each consumes a capped plan call). */
+export const MAX_PLAN_REPAIRS = 2;
+
 async function runPlanning(ctx: EngineContext, row: SequenceRow): Promise<AdvanceResult> {
   const mode = row.study_mode;
   if (!mode || !MODE_SPECS[mode]) return { row: await fail(ctx, row, "Unknown study mode."), scenes: [], worked: false, waiting: false };
@@ -351,16 +354,17 @@ async function runPlanning(ctx: EngineContext, row: SequenceRow): Promise<Advanc
   if (!plan) return { row: await fail(ctx, row, "The study plan had an invalid shape."), scenes: [], worked: true, waiting: false };
   plan = differentiateVisualBriefs(canonicalizeVerbatimQuote(plan, chapterText));
 
-  // Deterministic gates first — before any visual/TTS spend. At most one correction is allowed.
-  const issues = validatePlan(plan, mode, sources, { reference: ctx.reference, chapterText });
-  if (issues.length) {
-    // One bounded repair pass using the existing planning-call allowance.
-    // Never bypass deterministic validation or the subsequent semantic audit.
-    // Keep one credit for the mandatory independent grounding audit.
+  // Deterministic gates first — before any visual/TTS spend. Up to MAX_PLAN_REPAIRS bounded
+  // corrections, each fully re-validated, always keeping one call for the grounding audit.
+  let issues = validatePlan(plan, mode, sources, { reference: ctx.reference, chapterText });
+  for (let attempt = 0; issues.length; attempt += 1) {
     const latest = await ctx.db.loadVideo(row.id);
     const planningCallsLeft = (latest?.call_budget.plan ?? 0) - (latest?.call_usage.plan ?? 0);
-    if (planningCallsLeft < 2 || !(await ctx.db.consumeCall(row.id, "plan"))) {
-      return { row: await fail(ctx, row, `The draft plan did not pass validation, and not enough planning budget remains to repair and audit it. ${explainPlanIssues(issues)}`), scenes: [], worked: true, waiting: false, issues };
+    if (attempt >= MAX_PLAN_REPAIRS || planningCallsLeft < 2 || !(await ctx.db.consumeCall(row.id, "plan"))) {
+      const prefix = attempt === 0
+        ? "The draft plan did not pass validation, and not enough planning budget remains to repair and audit it."
+        : "The repaired plan still has issues.";
+      return { row: await fail(ctx, row, `${prefix} ${explainPlanIssues(issues)}`), scenes: [], worked: true, waiting: false, issues };
     }
     try {
       const feedback = issues.slice(0, 24).map((issue) =>
@@ -368,7 +372,7 @@ async function runPlanning(ctx: EngineContext, row: SequenceRow): Promise<Advanc
       ).join("\n");
       const repaired = parsePlan(await ctx.providers.json(
         planInstructions(mode, ctx.reference) +
-          "\nREPAIR TASK: Revise the entire draft to resolve EVERY issue, including weak support. Narration must closely paraphrase ONLY cited guide sources. Every illustration must use a distinct source-grounded subject or symbolic composition; don't repeat visual descriptions. Describe visualBrief using POSITIVE allowed imagery only (abstract landscapes, light, texture, silhouettes); omit all forbidden terms, including phrases like no faces or no text. Never invent events, cause, people, chronology, quotations or dialogue. Use apostrophes normally in possessives, never quote dialogue in single marks. Preserve word budget and event order. The full deterministic and independent semantic audits must still pass. Return corrected JSON in the same schema.",
+          "\nREPAIR TASK: Revise the entire draft to resolve EVERY issue, including weak support and duplicates. Narration must closely paraphrase ONLY cited guide sources. Every scene must cover a different event, instruction or aspect; never restate an earlier scene. Every illustration must use a distinct source-grounded subject or symbolic composition; don't repeat visual descriptions. Describe visualBrief using POSITIVE allowed imagery only (abstract landscapes, light, texture, silhouettes); omit all forbidden terms, including phrases like no faces or no text. Never invent events, cause, people, chronology, quotations or dialogue. Use apostrophes normally in possessives, never quote dialogue in single marks. Preserve word budget and event order. The full deterministic and independent semantic audits must still pass. Return corrected JSON in the same schema.",
         `${input}\n\nREJECTED DRAFT:\n${JSON.stringify(plan)}\n\nVALIDATION ISSUES (scene numbers are 0-based):\n${feedback}\n\nHOW TO FIX:\n${repairGuidance(issues)}`,
         "study_sequence_plan",
         PLAN_JSON_SCHEMA,
@@ -379,10 +383,7 @@ async function runPlanning(ctx: EngineContext, row: SequenceRow): Promise<Advanc
     } catch (error) {
       return { row: await fail(ctx, row, safeError(error, "The study plan could not be repaired.")), scenes: [], worked: true, waiting: false, issues };
     }
-    const remaining = validatePlan(plan, mode, sources, { reference: ctx.reference, chapterText });
-    if (remaining.length) {
-      return { row: await fail(ctx, row, `The repaired plan still has issues. ${explainPlanIssues(remaining)}`), scenes: [], worked: true, waiting: false, issues: remaining };
-    }
+    issues = validatePlan(plan, mode, sources, { reference: ctx.reference, chapterText });
   }
 
   // Bounded semantic entailment audit: one call, fail closed on incomplete or negative verdicts.
