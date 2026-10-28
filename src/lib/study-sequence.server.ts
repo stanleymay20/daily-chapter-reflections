@@ -368,7 +368,7 @@ async function runPlanning(ctx: EngineContext, row: SequenceRow): Promise<Advanc
       const repaired = parsePlan(await ctx.providers.json(
         planInstructions(mode, ctx.reference) +
           "\nREPAIR TASK: Revise the entire draft to resolve EVERY issue, including weak support. Narration must closely paraphrase ONLY cited guide sources. Every illustration must use a distinct source-grounded subject or symbolic composition; don't repeat visual descriptions. Describe visualBrief using POSITIVE allowed imagery only (abstract landscapes, light, texture, silhouettes); omit all forbidden terms, including phrases like no faces or no text. Never invent events, cause, people, chronology, quotations or dialogue. Use apostrophes normally in possessives, never quote dialogue in single marks. Preserve word budget and event order. The full deterministic and independent semantic audits must still pass. Return corrected JSON in the same schema.",
-        `${input}\n\nREJECTED DRAFT:\n${JSON.stringify(plan)}\n\nVALIDATION ISSUES:\n${feedback}`,
+        `${input}\n\nREJECTED DRAFT:\n${JSON.stringify(plan)}\n\nVALIDATION ISSUES (scene numbers are 0-based):\n${feedback}\n\nHOW TO FIX:\n${repairGuidance(issues)}`,
         "study_sequence_plan",
         PLAN_JSON_SCHEMA,
         ctx.signal,
