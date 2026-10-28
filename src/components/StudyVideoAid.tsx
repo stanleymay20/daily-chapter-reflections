@@ -103,7 +103,7 @@ export function StudyVideoAid({ sequence, legacy, label, poster }: { sequence: S
             <div className="w-full space-y-2" role="status" aria-live="polite">
               <Button className="min-h-11" size="sm" disabled aria-disabled="true">Video limit reached</Button>
               <p className="text-xs leading-relaxed text-muted-foreground">
-                You can start 1 new video aid per hour and 2 per day. The next one is available after{" "}
+                You can start 3 new video aids per hour and 8 per day. The next one is available after{" "}
                 <time dateTime={new Date(sequence.videoQuotaUntil).toISOString()} className="font-semibold text-foreground">
                   {formatVideoQuotaReset(sequence.videoQuotaUntil)}
                 </time>{" "}
