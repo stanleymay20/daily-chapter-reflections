@@ -7,6 +7,15 @@ import { SEQUENCE_LABEL, cuesToVtt, type ClaimType } from "@/lib/study-sequence.
 
 const CLAIM_LABEL: Record<ClaimType, string> = { chapter: "From the chapter", context: "Background", uncertain: "Interpretation" };
 
+/** Varied cinematic camera moves for still scenes (push-in, pull-out, pans, drift). */
+const CAMERA_MOVES = [
+  { origin: "50% 50%", from: "scale(1.02)", to: "scale(1.18) translate(0, -1%)" },
+  { origin: "30% 50%", from: "scale(1.15) translate(3%, 0)", to: "scale(1.15) translate(-3%, 0)" },
+  { origin: "50% 40%", from: "scale(1.2)", to: "scale(1.04)" },
+  { origin: "70% 50%", from: "scale(1.15) translate(-3%, 1%)", to: "scale(1.15) translate(3%, -1%)" },
+  { origin: "50% 70%", from: "scale(1.06) translate(0, 2%)", to: "scale(1.2) translate(0, -2%)" },
+] as const;
+
 function fmt(s: number) {
   const m = Math.floor(s / 60);
   return `${m}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
@@ -79,9 +88,14 @@ export function StudySequencePlayer({ sequence, label }: { sequence: SavedSequen
         ) : asset.visualType === "video" ? (
           <video key={asset.visualUrl} className="h-full w-full object-cover" src={asset.visualUrl} muted playsInline loop autoPlay={playing && !reduced} preload="metadata" aria-hidden />
         ) : (
-          <img key={asset.visualUrl} src={asset.visualUrl} alt="" aria-hidden className="h-full w-full object-cover"
-            style={reduced ? undefined : { transform: playing ? "scale(1.06)" : "scale(1)", transition: `transform ${Math.max(1, duration)}s linear` }} />
+          <img key={asset.visualUrl} src={asset.visualUrl} alt="" aria-hidden className="h-full w-full object-cover animate-in fade-in duration-700"
+            style={reduced ? undefined : {
+              transformOrigin: CAMERA_MOVES[index % CAMERA_MOVES.length]!.origin,
+              transform: playing ? CAMERA_MOVES[index % CAMERA_MOVES.length]!.to : CAMERA_MOVES[index % CAMERA_MOVES.length]!.from,
+              transition: `transform ${Math.max(2, duration)}s cubic-bezier(0.25, 0.1, 0.25, 1)`,
+            }} />
         )}
+        <div aria-hidden className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_55%,hsl(0_0%_0%/0.45)_100%)]" />
         <span className="pointer-events-none absolute left-2 top-2 rounded-md bg-background/85 px-2 py-1 text-[10px] font-medium text-foreground">{SEQUENCE_LABEL}</span>
         {scene.scriptureQuote ? (
           <figure className="absolute inset-x-3 top-10 rounded-lg border border-primary/40 bg-background/90 p-3 text-sm shadow-sm">
