@@ -754,15 +754,19 @@ export function parseGroundingVerdict(value: unknown, sceneCount: number): PlanI
 }
 
 export function stillPrompt(reference: string, scene: PlannedScene) {
-  return `A calm, reverent, painterly study illustration for a private Bible study on ${reference}. Artistic interpretation only — not a historical photograph or record.
-Scene: ${scene.visualBrief}
-Style: muted natural earth tones, soft directional light, generous negative space, 3:2 landscape. Figures only at a distance or in silhouette with no identifiable faces. Where a detail is not stated, keep it abstract: light, landscape, texture. Divine presence only as light or cloud, never a figure.
-No text, letters, captions, maps, logos or symbols. No weapons, gore or sensational action.`;
+  return `A cinematic film still for a reverent Bible study film on ${reference}. Artistic interpretation only — not a historical photograph or record.
+Shot: ${scene.visualBrief}
+Narration this image accompanies: "${scene.narration.slice(0, 400)}"
+The main subject of the narration must be clearly visible and the focal point of the frame.
+Look: epic biblical drama cinematography, anamorphic widescreen composition, dramatic volumetric light, rich warm earth and gold tones with deep shadows, atmospheric haze, shallow depth of field, highly detailed, photoreal painterly finish, 3:2 landscape. People in silhouette, seen from behind or at a distance, with no identifiable faces. Divine presence only as light, cloud or fire, never a figure.
+No text, letters, captions, maps, logos or symbols. No weapons, gore or sensational violence.`;
 }
 
 export function clipPrompt(reference: string, scene: PlannedScene) {
-  return `A ${SEQUENCE_CLIP_SECONDS}-second calm, painterly study visual for a private Bible study on ${reference}. Artistic interpretation, never historical footage.
-${scene.visualBrief}
-One slow camera move (gentle push-in or slow pan), in a single continuous shot, no scene cuts. Figures distant or in silhouette, no identifiable faces. Divine presence only as light or cloud. Muted earth tones, soft light.
-No dialogue. No narration. No on-screen text, letters or captions. No weapons or gore. Audio: near silence, soft room tone only. No music.`;
+  return `A ${SEQUENCE_CLIP_SECONDS}-second cinematic shot for a reverent Bible study film on ${reference}. Artistic interpretation, never historical footage.
+Shot: ${scene.visualBrief}
+It accompanies this narration, so its subject must be clearly visible: "${scene.narration.slice(0, 400)}"
+Camera: one continuous, smooth, motivated move (slow dolly-in, crane rise, lateral tracking or orbit), no cuts. Visible living motion in the scene: flickering flame, drifting smoke or dust, cloth and grass moving in wind, light shifting through haze.
+Look: epic biblical drama cinematography, dramatic volumetric light, rich warm earth and gold tones, deep shadows, shallow depth of field, film grain. People in silhouette or from behind, no identifiable faces. Divine presence only as light, cloud or fire.
+No dialogue. No narration. No on-screen text, letters or captions. No weapons or gore. Audio: soft ambient sound only, no music, no voices.`;
 }
