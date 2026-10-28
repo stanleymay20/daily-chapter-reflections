@@ -13,6 +13,7 @@ import {
   clipPrompt,
   groundingCheckInstructions,
   explainPlanIssues,
+  repairGuidance,
   differentiateVisualBriefs,
   planRetryBlock,
   canonicalizeVerbatimQuote,
