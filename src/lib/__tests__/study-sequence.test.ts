@@ -98,7 +98,7 @@ describe("study modes and cost caps", () => {
   });
 
   it("SQL reservation budgets mirror the TypeScript ceilings exactly", () => {
-    const sql = src("../../../drizzle/migrations/0006_study_video_sequences.sql");
+    const sql = src("../../../drizzle/migrations/0008_study_video_plan_budget.sql");
     for (const [mode, spec] of Object.entries(MODE_SPECS)) {
       expect(sql).toContain(`when '${mode}' then v_budget := '${JSON.stringify(spec.budget)}'`);
     }
@@ -493,11 +493,11 @@ describe("pipeline engine (mocked providers)", () => {
     const h = harness();
     h.video.status = "failed";
     h.video.stage = "planning";
-    h.video.call_usage.plan = 3;
+    h.video.call_usage.plan = MODE_SPECS.quick.budget.plan - 1;
     const retry = await retrySequence(h.db, "v1");
     expect(retry).toBeNull();
     expect(h.video.status).toBe("failed");
-    expect(h.video.call_usage.plan).toBe(3);
+    expect(h.video.call_usage.plan).toBe(MODE_SPECS.quick.budget.plan - 1);
   });
 
   it("allows a budgeted planning retry without resetting provider-call usage", async () => {
@@ -725,11 +725,11 @@ describe("pipeline engine (mocked providers)", () => {
 
   it("does not spend a final lone planning call without enough budget for the audit", async () => {
     const h = harness();
-    h.video.call_usage.plan = 3;
+    h.video.call_usage.plan = MODE_SPECS.quick.budget.plan - 1;
     const result = await advanceSequence(h.engine, "v1");
     expect(result.row.status).toBe("failed");
     expect(h.calls["json"]).toBe(0);
-    expect(h.video.call_usage.plan).toBe(3);
+    expect(h.video.call_usage.plan).toBe(MODE_SPECS.quick.budget.plan - 1);
   });
 
   it("repairs a rejected plan once and revalidates before generating assets", async () => {
@@ -767,6 +767,7 @@ describe("schema, security and migration parity", () => {
     expect(supa).toBe(drizzle);
     const g1 = src("../../../drizzle/migrations/0007_study_videos_column_update_grants.sql");
     expect(src("../../../supabase/migrations/20261004233100_study_videos_column_update_grants.sql")).toBe(g1);
+    expect(src("../../../supabase/migrations/20261028005500_study_video_plan_budget.sql")).toBe(src("../../../drizzle/migrations/0008_study_video_plan_budget.sql"));
     expect(g1).toContain("revoke update on public.study_videos from authenticated;");
     expect(g1.slice(g1.indexOf("grant update"))).not.toMatch(/call_budget|call_usage|plan_hash|kind|study_mode/);
   });
@@ -827,5 +828,11 @@ describe("plan repair guidance", async () => {
     const text = planInstructions("deep", "Leviticus 24");
     expect(text).toMatch(/so that/);
     expect(text).toMatch(/invite the viewer to "read"/);
+  });
+});
+
+describe("planning ceiling", () => {
+  it("lets a retry run a full draft, repair and audit after a first failed attempt", () => {
+    for (const spec of Object.values(MODE_SPECS)) expect(spec.budget.plan).toBe(6);
   });
 });
