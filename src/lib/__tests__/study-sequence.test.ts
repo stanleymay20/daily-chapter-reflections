@@ -493,11 +493,11 @@ describe("pipeline engine (mocked providers)", () => {
     const h = harness();
     h.video.status = "failed";
     h.video.stage = "planning";
-    h.video.call_usage.plan = 3;
+    h.video.call_usage.plan = MODE_SPECS.quick.budget.plan - 1;
     const retry = await retrySequence(h.db, "v1");
     expect(retry).toBeNull();
     expect(h.video.status).toBe("failed");
-    expect(h.video.call_usage.plan).toBe(3);
+    expect(h.video.call_usage.plan).toBe(MODE_SPECS.quick.budget.plan - 1);
   });
 
   it("allows a budgeted planning retry without resetting provider-call usage", async () => {
@@ -725,11 +725,11 @@ describe("pipeline engine (mocked providers)", () => {
 
   it("does not spend a final lone planning call without enough budget for the audit", async () => {
     const h = harness();
-    h.video.call_usage.plan = 3;
+    h.video.call_usage.plan = MODE_SPECS.quick.budget.plan - 1;
     const result = await advanceSequence(h.engine, "v1");
     expect(result.row.status).toBe("failed");
     expect(h.calls["json"]).toBe(0);
-    expect(h.video.call_usage.plan).toBe(3);
+    expect(h.video.call_usage.plan).toBe(MODE_SPECS.quick.budget.plan - 1);
   });
 
   it("repairs a rejected plan once and revalidates before generating assets", async () => {
@@ -828,5 +828,11 @@ describe("plan repair guidance", async () => {
     const text = planInstructions("deep", "Leviticus 24");
     expect(text).toMatch(/so that/);
     expect(text).toMatch(/invite the viewer to "read"/);
+  });
+});
+
+describe("planning ceiling", () => {
+  it("lets a retry run a full draft, repair and audit after a first failed attempt", () => {
+    for (const spec of Object.values(MODE_SPECS)) expect(spec.budget.plan).toBe(6);
   });
 });
