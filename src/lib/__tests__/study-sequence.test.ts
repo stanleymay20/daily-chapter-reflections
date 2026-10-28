@@ -98,7 +98,7 @@ describe("study modes and cost caps", () => {
   });
 
   it("SQL reservation budgets mirror the TypeScript ceilings exactly", () => {
-    const sql = src("../../../drizzle/migrations/0006_study_video_sequences.sql");
+    const sql = src("../../../drizzle/migrations/0008_study_video_plan_budget.sql");
     for (const [mode, spec] of Object.entries(MODE_SPECS)) {
       expect(sql).toContain(`when '${mode}' then v_budget := '${JSON.stringify(spec.budget)}'`);
     }
@@ -767,6 +767,7 @@ describe("schema, security and migration parity", () => {
     expect(supa).toBe(drizzle);
     const g1 = src("../../../drizzle/migrations/0007_study_videos_column_update_grants.sql");
     expect(src("../../../supabase/migrations/20261004233100_study_videos_column_update_grants.sql")).toBe(g1);
+    expect(src("../../../supabase/migrations/20261028005500_study_video_plan_budget.sql")).toBe(src("../../../drizzle/migrations/0008_study_video_plan_budget.sql"));
     expect(g1).toContain("revoke update on public.study_videos from authenticated;");
     expect(g1.slice(g1.indexOf("grant update"))).not.toMatch(/call_budget|call_usage|plan_hash|kind|study_mode/);
   });

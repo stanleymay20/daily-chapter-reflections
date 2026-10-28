@@ -36,9 +36,9 @@ export type ModeSpec = {
 export const WORDS_PER_SECOND = 2.4;
 
 export const MODE_SPECS: Record<SequenceMode, ModeSpec> = {
-  quick: { label: "Quick", targetSeconds: [45, 75], scenes: [5, 6], maxClips: 2, maxStills: 2, words: [110, 185], budget: { plan: 4, still: 3, clip: 3, tts: 7 } },
-  standard: { label: "Standard", targetSeconds: [90, 150], scenes: [8, 10], maxClips: 3, maxStills: 5, words: [215, 360], budget: { plan: 4, still: 6, clip: 4, tts: 11 } },
-  deep: { label: "Deep", targetSeconds: [120, 240], scenes: [12, 16], maxClips: 4, maxStills: 10, words: [290, 575], budget: { plan: 4, still: 11, clip: 5, tts: 17 } },
+  quick: { label: "Quick", targetSeconds: [45, 75], scenes: [5, 6], maxClips: 2, maxStills: 2, words: [110, 185], budget: { plan: 6, still: 3, clip: 3, tts: 7 } },
+  standard: { label: "Standard", targetSeconds: [90, 150], scenes: [8, 10], maxClips: 3, maxStills: 5, words: [215, 360], budget: { plan: 6, still: 6, clip: 4, tts: 11 } },
+  deep: { label: "Deep", targetSeconds: [120, 240], scenes: [12, 16], maxClips: 4, maxStills: 10, words: [290, 575], budget: { plan: 6, still: 11, clip: 5, tts: 17 } },
 };
 
 /** Study experience → default video mode. "Just Read" never suggests video; if chosen it starts Quick. */
