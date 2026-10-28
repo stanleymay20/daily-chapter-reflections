@@ -665,7 +665,34 @@ Rules (the complete plan must pass both deterministic checks and an independent 
 - Never write dialogue or first-person speech for God, Jesus, prophets or any character. No "he said:". No "I", "me", "my".
 - A Scripture quotation is optional, at most 25 words, copied verbatim from CHAPTER TEXT, wrapped in double quotes in narration and copied exactly into scriptureQuote. Otherwise scriptureQuote is null and narration has no quotation marks. Apostrophes in ordinary names and possessives (Joseph's, God's) are fine. Do NOT enclose any dialogue in single quotation marks.
 - Every content scene visual must be unique, varied and closely supported by its own sourceRefs. Repeated generic backgrounds are unacceptable. Describe a different grounded subject or symbolic motif for each scene, without inventing facts. Keep narration and scene sources distinct and relevant.
-- visualBrief: describe only allowed POSITIVE visual content: abstract landscapes, light, texture, distant silhouettes. Do not include prohibited nouns anywhere in the brief, even as negations such as "no faces" or "no text". Never specify an unsupported physical detail. The image provider receives separate exclusion rules. Divine presence only as symbolic light, clouds or stillness. Title/closing briefs may be short.`;
+- visualBrief: describe only allowed POSITIVE visual content: abstract landscapes, light, texture, distant silhouettes. Do not include prohibited nouns anywhere in the brief, even as negations such as "no faces" or "no text". Never specify an unsupported physical detail. The image provider receives separate exclusion rules. Divine presence only as symbolic light, clouds or stillness. Title/closing briefs may be short.
+
+Automatic checks that reject the plan (follow them exactly):
+- Cause words ("because", "therefore", "so that", "as a result", "led to", "caused", "in order to", "resulted") may appear in a "chapter" scene ONLY if one of that scene's cited sources itself uses such a word. Otherwise describe events in sequence ("Then…", "Next…") without stating a cause, or mark the scene "context"/"uncertain" with hedged wording.
+- Dates, years, centuries, generations and numerals only when the cited source text contains them.
+- Every capitalised name must appear in the cited sources.
+- Narration must reuse the key nouns and verbs of its cited sources: about half of a chapter scene's content words should appear in its sources. Paraphrase closely; do not summarise in fresh vocabulary.
+- The closing narration must explicitly invite the viewer to "read" the chapter.`;
+}
+
+/** Concrete, code-specific repair instructions so a single repair pass can resolve deterministic issues. */
+const REPAIR_HINTS: Record<string, string> = {
+  unsupported_causal: "Remove every cause word (because, therefore, so that, as a result, led to, caused, in order to, resulted) from the listed scenes unless a cited source uses one; state the events in order instead.",
+  unsupported_chronology: "Remove dates, years, centuries and generations that the cited sources do not contain.",
+  unsupported_number: "Remove numerals that the cited sources do not contain.",
+  unsupported_entity: "Remove capitalised names that the cited sources do not contain, or cite the source that names them.",
+  weak_support: "Rewrite the listed scenes using the same key nouns and verbs as their cited sources, or cite the sources that actually support them.",
+  closing_return: "Make the closing narration explicitly invite the viewer to read the chapter.",
+  unlabeled_uncertainty: "Word uncertain scenes with 'may', 'perhaps' or 'likely'.",
+  dialogue: "Remove all first-person words and reported speech; describe what happens in the third person.",
+  fabricated_quote: "Remove the quotation or copy it verbatim from CHAPTER TEXT into both narration (double quotes) and scriptureQuote.",
+  unlabeled_quote: "Copy the exact quoted words into scriptureQuote.",
+  word_budget: "Adjust scene narration so the total word count is within the stated budget.",
+};
+
+export function repairGuidance(issues: PlanIssue[]): string {
+  const codes = [...new Set(issues.map((i) => i.code))];
+  return codes.map((c) => REPAIR_HINTS[c]).filter(Boolean).map((h) => `- ${h}`).join("\n");
 }
 
 /** Safe, short scene-specific diagnostics rather than repeated generic failures. */
