@@ -816,3 +816,16 @@ describe("schema, security and migration parity", () => {
     expect(player).not.toMatch(/<audio[^>]*autoPlay/);
   });
 });
+
+describe("plan repair guidance", async () => {
+  const { repairGuidance, planInstructions } = await import("../study-sequence.shared");
+  it("gives a concrete fix for an unsupported cause word", () => {
+    const text = repairGuidance([{ scene: 1, code: "unsupported_causal", detail: "x" }]);
+    expect(text).toMatch(/because/);
+  });
+  it("tells the planner the cause-word and closing rules up front", () => {
+    const text = planInstructions("deep", "Leviticus 24");
+    expect(text).toMatch(/so that/);
+    expect(text).toMatch(/invite the viewer to "read"/);
+  });
+});
