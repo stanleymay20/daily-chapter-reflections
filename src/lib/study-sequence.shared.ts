@@ -665,7 +665,8 @@ Rules (the complete plan must pass both deterministic checks and an independent 
 - Never write dialogue or first-person speech for God, Jesus, prophets or any character. No "he said:". No "I", "me", "my".
 - A Scripture quotation is optional, at most 25 words, copied verbatim from CHAPTER TEXT, wrapped in double quotes in narration and copied exactly into scriptureQuote. Otherwise scriptureQuote is null and narration has no quotation marks. Apostrophes in ordinary names and possessives (Joseph's, God's) are fine. Do NOT enclose any dialogue in single quotation marks.
 - Every content scene visual must be unique, varied and closely supported by its own sourceRefs. Repeated generic backgrounds are unacceptable. Describe a different grounded subject or symbolic motif for each scene, without inventing facts. Keep narration and scene sources distinct and relevant.
-- visualBrief: describe only allowed POSITIVE visual content: abstract landscapes, light, texture, distant silhouettes. Do not include prohibited nouns anywhere in the brief, even as negations such as "no faces" or "no text". Never specify an unsupported physical detail. The image provider receives separate exclusion rules. Divine presence only as symbolic light, clouds or stillness. Title/closing briefs may be short.
+- visualBrief: a cinematic shot description that SHOWS what this scene's narration talks about. Name the concrete subject from the narration and its sources (the object, place, offering, structure, action or gathering being described, e.g. "lamps of the lampstand burning before the veil" or "people gathered outside the camp"), then the framing (wide establishing, low-angle, close detail, over-the-shoulder silhouette), the light (dawn, golden hour, lamplight, firelight, overcast) and the atmosphere (dust, smoke, wind, haze). A viewer must be able to tell which sentence of narration the picture belongs to; generic landscapes or textures are unacceptable for content scenes. People appear as silhouettes, figures seen from behind or at a distance. Use only details supported by the cited sources or neutral period setting (tents, stone, linen, desert, oil lamps); never specify unsupported details. Describe only positive content: no negations such as "no faces" or "no text" (the provider receives exclusion rules separately). Divine presence only as symbolic light, cloud or fire. For "clip" scenes, also describe ONE clear motion in the shot (flames flickering, smoke rising, cloth moving in wind, a slow camera dolly or crane move). Title/closing briefs may be short.
+- Choose visualKind "clip" for the scenes with the most natural motion (fire, smoke, crowds moving, water, wind), using the full clip allowance.
 
 Automatic checks that reject the plan (follow them exactly):
 - Cause words ("because", "therefore", "so that", "as a result", "led to", "caused", "in order to", "resulted") may appear in a "chapter" scene ONLY if one of that scene's cited sources itself uses such a word. Otherwise describe events in sequence ("Then…", "Next…") without stating a cause, or mark the scene "context"/"uncertain" with hedged wording.
@@ -753,15 +754,19 @@ export function parseGroundingVerdict(value: unknown, sceneCount: number): PlanI
 }
 
 export function stillPrompt(reference: string, scene: PlannedScene) {
-  return `A calm, reverent, painterly study illustration for a private Bible study on ${reference}. Artistic interpretation only — not a historical photograph or record.
-Scene: ${scene.visualBrief}
-Style: muted natural earth tones, soft directional light, generous negative space, 3:2 landscape. Figures only at a distance or in silhouette with no identifiable faces. Where a detail is not stated, keep it abstract: light, landscape, texture. Divine presence only as light or cloud, never a figure.
-No text, letters, captions, maps, logos or symbols. No weapons, gore or sensational action.`;
+  return `A cinematic film still for a reverent Bible study film on ${reference}. Artistic interpretation only — not a historical photograph or record.
+Shot: ${scene.visualBrief}
+Narration this image accompanies: "${scene.narration.slice(0, 400)}"
+The main subject of the narration must be clearly visible and the focal point of the frame.
+Look: epic biblical drama cinematography, anamorphic widescreen composition, dramatic volumetric light, rich warm earth and gold tones with deep shadows, atmospheric haze, shallow depth of field, highly detailed, photoreal painterly finish, 3:2 landscape. People in silhouette, seen from behind or at a distance, with no identifiable faces. Divine presence only as light, cloud or fire, never a figure.
+No text, letters, captions, maps, logos or symbols. No weapons, gore or sensational violence.`;
 }
 
 export function clipPrompt(reference: string, scene: PlannedScene) {
-  return `A ${SEQUENCE_CLIP_SECONDS}-second calm, painterly study visual for a private Bible study on ${reference}. Artistic interpretation, never historical footage.
-${scene.visualBrief}
-One slow camera move (gentle push-in or slow pan), in a single continuous shot, no scene cuts. Figures distant or in silhouette, no identifiable faces. Divine presence only as light or cloud. Muted earth tones, soft light.
-No dialogue. No narration. No on-screen text, letters or captions. No weapons or gore. Audio: near silence, soft room tone only. No music.`;
+  return `A ${SEQUENCE_CLIP_SECONDS}-second cinematic shot for a reverent Bible study film on ${reference}. Artistic interpretation, never historical footage.
+Shot: ${scene.visualBrief}
+It accompanies this narration, so its subject must be clearly visible: "${scene.narration.slice(0, 400)}"
+Camera: one continuous, smooth, motivated move (slow dolly-in, crane rise, lateral tracking or orbit), no cuts. Visible living motion in the scene: flickering flame, drifting smoke or dust, cloth and grass moving in wind, light shifting through haze.
+Look: epic biblical drama cinematography, dramatic volumetric light, rich warm earth and gold tones, deep shadows, shallow depth of field, film grain. People in silhouette or from behind, no identifiable faces. Divine presence only as light, cloud or fire.
+No dialogue. No narration. No on-screen text, letters or captions. No weapons or gore. Audio: soft ambient sound only, no music, no voices.`;
 }
