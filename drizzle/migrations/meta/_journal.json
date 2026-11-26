@@ -71,6 +71,13 @@
       "when": 1793149205001,
       "tag": "0009_study_video_daily_allowance",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1795667295891,
+      "tag": "0010_community_authenticated_select",
+      "breakpoints": true
     }
   ]
 }
