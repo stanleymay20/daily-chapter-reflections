@@ -78,6 +78,13 @@
       "when": 1795667295891,
       "tag": "0010_community_authenticated_select",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1795667391433,
+      "tag": "0011_community_owner_scoped_select",
+      "breakpoints": true
     }
   ]
 }
